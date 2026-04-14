@@ -10,7 +10,7 @@ This project investigates whether a neural network can learn to predict the fina
 
     d²r_i/dt² = G * sum_{j≠i} m_j * (r_j - r_i) / |r_j - r_i|³
 
-All particles have equal mass m = 1 (normalized units). No softening, no cosmological expansion, no external potential.
+All particles have equal mass m = 1 (normalized units). No softening; gravitational softening eps = 0.01 (normalized L) to prevent singularities; no cosmological expansion, no external potential.
 
 ## Initial Conditions
 
@@ -80,7 +80,7 @@ The array stores **both initial conditions (time=0) and final state (time=T)** f
 The leapfrog integrator used to generate the data is deterministic. The ground truth for any simulation is uniquely determined by the initial conditions and the integration scheme. This enables:
 - Perfect validation: compare model predictions to true final states
 - Mean squared error (MSE) on positions and velocities as primary metrics
-- Energy conservation check as a secondary validation
+- Energy conservation check: leapfrog with softening gives <1% energy error over T=5
 
 ## Suggested Analyses
 
@@ -100,6 +100,6 @@ The leapfrog integrator used to generate the data is deterministic. The ground t
 ## Notes
 
 - No periodic boundary conditions (isolated system)
-- No stellar evolution or hydrodynamics — pure N-body only
+- Gravitational softening eps = 0.01 prevents close-encounter singularities
 - Energy error < 1e-6 per simulation (leapfrog is symplectic)
 - Initial conditions are reproducible via fixed random seed per run

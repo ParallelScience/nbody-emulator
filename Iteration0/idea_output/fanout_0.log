@@ -1,0 +1,184 @@
+
+###### PROMPT BEGINS ########
+Human: 
+**Role**: Senior Scientific Lead and Peer Reviewer.
+**Objective**: Critically evaluate 10 proposed research ideas and select the single most impactful project to move into the planning phase.
+
+**Evaluation Framework**:
+To determine the "largest scientific impact," you must weigh each idea against the following four pillars:
+1. **Feasibility**: Given the constraints in the 'Data Description,' can this project actually be executed with the available variables?
+2. **Novelty**: Does the idea offer a fresh perspective, or is it a standard, derivative analysis?
+3. **Rigour**: Does the idea suggest a deep investigation into the underlying physics/logic of the data?
+4. **Utility**: Will the results provide actionable insights or significantly enhance our understanding of the system?
+5. The idea selected should be as different as possible to any previous ideas.
+
+**Task**:
+1. Review the proposed 10 research ideas along with any previous ideas.
+2. Review the 'Data Description' to ensure the ideas are physically and statistically grounded.
+3. Select the **one** idea that best balances innovation with scientific feasibility.
+4. The selected idea must contain a title and a description of it.
+
+**Operational Constraints**:
+- Do not provide a list of pros and cons.
+- Do not modify the original text of the idea.
+- Provide **only** the text of the selected idea within the required tags.
+
+Data description:
+# N-body Simulation Dataset for ML Emulation
+
+## Overview
+
+This project investigates whether a neural network can learn to predict the final state of an N-body gravitational simulation given only the initial conditions. We generate 100 controlled N-body simulations with identical particle mass distribution, then train a model to map initial phase-space configurations to final positions and velocities.
+
+## Physics Model
+
+**Gravitational N-body problem** — N particles interact only through Newtonian gravity:
+
+    d²r_i/dt² = G * sum_{j≠i} m_j * (r_j - r_i) / |r_j - r_i|³
+
+All particles have equal mass m = 1 (normalized units). No softening; gravitational softening eps = 0.01 (normalized L) to prevent singularities; no cosmological expansion, no external potential.
+
+## Initial Conditions
+
+Each of the 100 simulations is initialized as a **virialized Plummer sphere**:
+
+1. Draw N particle positions from a Plummer distribution with scale radius b = 1
+2. Draw velocities from the isotropic Wilson criterion: v_esc² = 2 * (1 + r/r_a)⁻¹ where r_a = b/5
+3. Rescale velocities to exactly virial equilibrium: total KE = 0.5 * |total PE|
+4. Center of mass is translated to origin; total momentum is zeroed
+
+**Number of particles per simulation:** N = 50
+**Scale:** G = M = 1 (geometric units), b = 1
+
+## Integrator
+
+**Leapfrog (kick-drift-kick) scheme** with fixed timestep:
+
+    v_{n+1/2} = v_n + (dt/2) * a(r_n)
+    r_{n+1}  = r_n + dt * v_{n+1/2}
+    v_{n+1}  = v_{n+1/2} + (dt/2) * a(r_{n+1})
+
+**Timestep:** dt = 0.01 (normalized units)
+**Number of steps:** 500 → total integration time T = 5.0
+
+## Dataset Files
+
+All files are NumPy `.npy` structured arrays saved at absolute paths:
+
+### `/home/node/work/projects/nbody_emulator/data/ic_final.npy`
+**Shape:** (100, N, 13) — 100 simulations × 50 particles × 13 features
+
+| Feature index | Field name    | Unit | Description                             |
+|---------------|---------------|------|-----------------------------------------|
+| 0–2           | x, y, z       | L    | 3D position (scale b = 1)               |
+| 3–5           | vx, vy, vz    | L/T  | 3D velocity                             |
+| 6             | mass          | M    | Particle mass (= 1.0 for all)          |
+| 7             | kinetic_E     | M L²/T² | Instantaneous KE = 0.5 * v²          |
+| 8             | potential_E   | M L²/T² | Instantaneous PE (pairwise sum)        |
+| 9             | total_E       | M L²/T² | KE + PE                             |
+| 10            | r_norm        | L    | Distance from origin                    |
+| 11            | v_norm        | L/T  | Speed                                   |
+| 12            | time          | T    | Snapshot time (0 for IC, T=5 for final)|
+
+The array stores **both initial conditions (time=0) and final state (time=T)** for each simulation run, identifiable by the `time` field.
+
+### `/home/node/work/projects/nbody_emulator/data/sim_metadata.npy`
+**Shape:** (100, 7)
+
+| Col | Field          | Unit | Description                          |
+|-----|----------------|------|--------------------------------------|
+| 0   | run_id         | —    | Simulation ID (0–99)                 |
+| 1   | n_particles    | —    | N = 50 (all runs)                    |
+| 2   | initial_KE     | M L²/T² | Total KE at t=0                    |
+| 3   | initial_PE     | M L²/T² | Total PE at t=0                    |
+| 4   | final_KE       | M L²/T² | Total KE at t=T                    |
+| 5   | final_PE       | M L²/T² | Total PE at t=T                    |
+| 6   | energy_error   | M L²/T² | |(E_final - E_initial)/E_initial| |
+
+## Input/Output for ML
+
+**Input (X):** Initial conditions — positions (x,y,z) and velocities (vx,vy,vz) for all 50 particles → 6 × 50 = 300 features per simulation.
+
+**Output (y):** Final state — final positions (x,y,z) and velocities (vx,vy,vz) for all 50 particles → 6 × 50 = 300 targets per simulation.
+
+## Ground Truth Availability
+
+The leapfrog integrator used to generate the data is deterministic. The ground truth for any simulation is uniquely determined by the initial conditions and the integration scheme. This enables:
+- Perfect validation: compare model predictions to true final states
+- Mean squared error (MSE) on positions and velocities as primary metrics
+- Energy conservation check: leapfrog with softening gives <1% energy error over T=5
+
+## Suggested Analyses
+
+1. **Baseline comparison:** Simple analytical approximations (e.g., point-mass gravity, violent relaxation)
+2. **NN architecture survey:** MLP, graph neural network (GNN), Transformer on particle sets
+3. **Generalization test:** Train on 80 simulations, test on 20 held-out; vary N or mass distributions
+4. **Latent space analysis:** Visualize what the model learns about gravitational dynamics
+5. **Fine-tuning:** After training on N=50, fine-tune on N=100 to test transferability
+
+## Hardware Constraints
+
+- Linux container, maximum 4 CPU cores, no GPU
+- All PyTorch/TensorFlow use `device='cpu'`
+- Simulation generation: ~100 × 500 steps × 50 particles — should complete in < 2 minutes
+- Model training: must converge within timeout limits
+
+## Notes
+
+- No periodic boundary conditions (isolated system)
+- Gravitational softening eps = 0.01 prevents close-encounter singularities
+- Energy error < 1e-6 per simulation (leapfrog is symplectic)
+- Initial conditions are reproducible via fixed random seed per run
+
+Proposed ideas:
+1. **Entropy Production in Gravitational Relaxation**
+Can the rate of change in the configuration entropy of a virialized system be predicted directly from the initial phase-space density? This study investigates whether the transition from an initial Plummer distribution to its final state follows a predictable information-theoretic trajectory, independent of specific particle trajectories.
+
+2. **Topological Stability of Particle Clusters**
+Does the initial spatial configuration of a particle subset dictate the emergence of long-lived, gravitationally bound sub-structures at $T=5$? This research explores the predictive mapping between initial local density fluctuations and the formation of persistent, high-density "clumps" within the N-body system.
+
+3. **Energy Error as a Dynamical Diagnostic**
+Can neural networks learn to predict the magnitude of energy non-conservation in a symplectic integrator before it manifests? By analyzing the drift in the total system energy, this study aims to determine if specific initial phase-space symmetries correlate with the accumulation of numerical integration errors.
+
+4. **Velocity Distribution Evolution and Anisotropy**
+Does the initial deviation from an isotropic velocity distribution accelerate the system’s transition to its final virialized state? This project examines the relationship between initial velocity anisotropy and the rate at which the system reaches a steady-state kinetic energy distribution.
+
+5. **Particle-Centric Influence Metrics**
+Which particles contribute most to the global evolution of the Plummer sphere, and can their influence be quantified through initial state analysis? This idea focuses on identifying "key influencers" whose initial positions and velocities dominate the final global displacement of the center of mass and energy distribution.
+
+6. **Spectral Signatures of Gravitational Chaos**
+Can the final system state be represented as a frequency decomposition of the initial gravitational potential fluctuations? This research tests whether the final positions of particles contain spectral fingerprints that can be reconstructed by analyzing the initial potential energy distribution across the N-body system.
+
+7. **The Role of Softening in Phase-Space Mixing**
+How does the gravitational softening parameter ($\epsilon=0.01$) fundamentally constrain the mixing efficiency of the particle phase-space? This study assesses whether models trained on the provided data learn to implicitly account for the suppressed interactions at small scales, effectively "re-learning" the softened potential.
+
+8. **Predicting Escape Probability in Isolated Systems**
+Although the system is gravitationally bound, can we identify early-stage "high-energy" particles that are statistically destined for the outer fringes of the sphere? This research explores the predictive power of initial kinetic energy distributions in identifying particles that will occupy the highest radial distances at $T=5$.
+
+9. **Geometric Invariance in N-body Dynamics**
+To what extent is the final state of the Plummer sphere invariant under rotation, and can a model be forced to learn this symmetry without explicit augmentation? This study aims to quantify the "geometric awareness" of models by comparing their predictive accuracy across rotated initial datasets.
+
+10. **Reversibility and Time-Arrow Discovery**
+Can a model trained on forward-time integration successfully learn the underlying reversibility of the leapfrog integrator? This research investigates whether the network can map final states back to initial conditions, effectively learning the inverse gravitational mapping without explicit knowledge of the integrator's time-step.
+
+
+
+
+
+
+
+Respond in exactly the following format:
+
+\\begin{IDEA}
+<IDEA>
+\\end{IDEA}
+
+In <IDEA>, put the idea you have selected
+
+###### PROMPT ENDS ########
+
+\begin{IDEA}
+10. **Reversibility and Time-Arrow Discovery**
+Can a model trained on forward-time integration successfully learn the underlying reversibility of the leapfrog integrator? This research investigates whether the network can map final states back to initial conditions, effectively learning the inverse gravitational mapping without explicit knowledge of the integrator's time-step.
+\end{IDEA}
+
