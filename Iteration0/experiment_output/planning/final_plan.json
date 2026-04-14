@@ -1,0 +1,73 @@
+{
+    "sub_tasks": [
+        {
+            "bullet_points": [
+                "Load ic_final.npy and sim_metadata.npy.",
+                "Re-run the leapfrog integrator to generate 10 intermediate snapshots at t in {0.5, 1.0, ..., 4.5} for each of the 100 simulations.",
+                "Save raw intermediate snapshots to disk.",
+                "Compute and save virial radius and velocity dispersion per simulation as normalization coefficients.",
+                "Implement a utility to generate augmented (rotated/reflected) copies of snapshots on-the-fly for training."
+            ],
+            "sub_task": "Data Preprocessing, Normalization, and Snapshot Generation",
+            "sub_task_agent": "engineer",
+            "code_execution_timeout": 1800
+        },
+        {
+            "bullet_points": [
+                "Implement a standalone, importable Python module containing the GNN architecture.",
+                "Define classes for the interaction network and the force computation layer.",
+                "Enforce Newton’s Third Law in the edge function.",
+                "Incorporate the gravitational softening epsilon = 0.01 as a fixed physical prior.",
+                "Ensure the module is compatible with PyTorch device='cpu'."
+            ],
+            "sub_task": "Interaction Network Module Implementation",
+            "sub_task_agent": "engineer",
+            "code_execution_timeout": 1800
+        },
+        {
+            "bullet_points": [
+                "Define system dynamics z_dot = f(z, theta) using the GNN module from Step 2.",
+                "Implement a Verlet-based (leapfrog) integrator within the Neural ODE framework.",
+                "Train on 80 simulations using intermediate snapshots, applying on-the-fly augmentation.",
+                "Use hyperparameter ranges: 50–100 epochs, hidden layers of size 64–128, learning rate 10^-3 to 10^-4, and a dynamic energy regularization weight schedule.",
+                "Save trained model weights and training/validation loss curves to disk."
+            ],
+            "sub_task": "Symplectic Neural ODE Training",
+            "sub_task_agent": "engineer",
+            "code_execution_timeout": 1800
+        },
+        {
+            "bullet_points": [
+                "Train a lightweight MLP (2-3 hidden layers) to map t=0 directly to t=5.",
+                "Evaluate the Symplectic Neural ODE (from Step 3) and the MLP baseline on the 20-simulation held-out test set.",
+                "Compute and plot energy drift over the predicted trajectory for both models.",
+                "Calculate final MSE metrics on positions and velocities in physical units using normalization coefficients from Step 1."
+            ],
+            "sub_task": "Baseline MLP Training and Evaluation",
+            "sub_task_agent": "engineer",
+            "code_execution_timeout": 1800
+        },
+        {
+            "bullet_points": [
+                "Train an ablation model (no softening kernel) using the same architecture and hyperparameters as Step 3.",
+                "Save ablation model weights.",
+                "Generate a side-by-side comparison table of MSE metrics (positions, velocities, energy error) for all three models: Neural ODE (with softening), Neural ODE (without softening), and MLP baseline.",
+                "Print and save all comparison statistics."
+            ],
+            "sub_task": "Ablation Study and Comparative Analysis",
+            "sub_task_agent": "engineer",
+            "code_execution_timeout": 1800
+        },
+        {
+            "bullet_points": [
+                "Synthesize results: training/validation loss curves, position/velocity MSE on test set, energy conservation error over time, and qualitative trajectory comparisons.",
+                "Interpret the performance of the Symplectic Neural ODE in capturing gravitational dynamics.",
+                "Discuss the impact of the softening kernel and the effectiveness of the symplectic integration approach.",
+                "Write the full Results section of the report, ensuring all quantitative results and plots from previous steps are referenced."
+            ],
+            "sub_task": "Final Results and Reporting",
+            "sub_task_agent": "researcher",
+            "code_execution_timeout": 1800
+        }
+    ]
+}
