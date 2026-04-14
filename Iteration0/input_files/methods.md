@@ -7,7 +7,7 @@
    - Implement a permutation-invariant GNN where each particle is a node.
    - Explicitly enforce Newton’s Third Law ($f_{ij} = -f_{ji}$) in the edge function to ensure action-reaction symmetry.
    - Incorporate the gravitational softening $\epsilon = 0.01$ as a fixed physical prior in the pairwise interaction calculation.
-   - Use sparse adjacency operations to compute interactions efficiently, minimizing memory overhead for the CPU-only environment.
+   - Use sparse adjacency operations to compute interactions efficiently; leverage GPU (CUDA) for batched message-passing across all simulations.
 
 3. **Symplectic Neural ODE Formulation**:
    - Define the system dynamics $\dot{z} = f(z, \theta)$ parameterized by the GNN.
@@ -24,9 +24,10 @@
    - Add a small amount of Gaussian noise to the input initial conditions during training to improve the robustness of the learned vector field and prevent overfitting.
 
 6. **Computational Efficiency and Stability**:
-   - Ensure efficient batching by processing all 100 simulations in parallel.
+   - Leverage GPU (NVIDIA RTX PRO 6000 Blackwell, 96 GB VRAM, CUDA 13.0) for training; use `device='cuda'` throughout.
+   - Process all 100 simulations in parallel on GPU with large batch sizes enabled by the available VRAM.
    - Monitor validation loss and energy conservation metrics to detect overfitting early.
-   - Avoid unnecessary memory copies during the ODE integration steps to stay within CPU-only hardware constraints.
+   - Use mixed-precision (FP16/BF16) where applicable to maximize throughput.
 
 7. **Model Evaluation and Benchmarking**:
    - Evaluate the model's ability to reconstruct the full trajectory by comparing the predicted $t=5$ state against the ground truth.
