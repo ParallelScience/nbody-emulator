@@ -1,0 +1,1082 @@
+
+###### PROMPT BEGINS ########
+Human: You are provided with the following inputs:
+
+1) A description of a dataset
+2) A current scientific idea or hypothesis
+3) A current research plan
+4) The results obtained from executing that plan
+
+**Your task is to assess whether any limitations, failures, or ambiguities in the analysis are directly attributable to constraints described in the dataset description.**
+
+Examples of such constraints include (but are not limited to):
+- required preprocessing steps or exclusions,
+- missing variables or incomplete coverage,
+- limited sample size or class imbalance,
+- measurement noise, censoring, or aggregation,
+- assumptions imposed by how the data were collected or curated.
+
+**Scope restriction (important)**:
+- Focus only on the dataset description.
+- Do not critique the scientific idea, hypothesis, or research plan.
+- Do not suggest alternative methods or models.
+- Other agents are responsible for methodological or conceptual feedback.
+
+**If a data-level constraint plausibly explains observed failures or weak results, describe:**
+- which constraint is responsible,
+- how it limits the analysis,
+- and what type of conclusions are affected.
+
+If no such constraints are evident, explicitly state that the dataset description does not appear to explain the observed issues.
+
+Data description:
+# N-body Simulation Dataset for ML Emulation
+
+## Overview
+
+This project investigates whether a neural network can learn to predict the final state of an N-body gravitational simulation given only the initial conditions. We generate 100 controlled N-body simulations with identical particle mass distribution, then train a model to map initial phase-space configurations to final positions and velocities.
+
+## Physics Model
+
+**Gravitational N-body problem** — N particles interact only through Newtonian gravity:
+
+    d²r_i/dt² = G * sum_{j≠i} m_j * (r_j - r_i) / |r_j - r_i|³
+
+All particles have equal mass m = 1 (normalized units). No softening; gravitational softening eps = 0.01 (normalized L) to prevent singularities; no cosmological expansion, no external potential.
+
+## Initial Conditions
+
+Each of the 100 simulations is initialized as a **virialized Plummer sphere**:
+
+1. Draw N particle positions from a Plummer distribution with scale radius b = 1
+2. Draw velocities from the isotropic Wilson criterion: v_esc² = 2 * (1 + r/r_a)⁻¹ where r_a = b/5
+3. Rescale velocities to exactly virial equilibrium: total KE = 0.5 * |total PE|
+4. Center of mass is translated to origin; total momentum is zeroed
+
+**Number of particles per simulation:** N = 50
+**Scale:** G = M = 1 (geometric units), b = 1
+
+## Integrator
+
+**Leapfrog (kick-drift-kick) scheme** with fixed timestep:
+
+    v_{n+1/2} = v_n + (dt/2) * a(r_n)
+    r_{n+1}  = r_n + dt * v_{n+1/2}
+    v_{n+1}  = v_{n+1/2} + (dt/2) * a(r_{n+1})
+
+**Timestep:** dt = 0.01 (normalized units)
+**Number of steps:** 500 → total integration time T = 5.0
+
+## Dataset Files
+
+All files are NumPy `.npy` structured arrays saved at absolute paths:
+
+### `/home/node/work/projects/nbody_emulator/data/ic_final.npy`
+**Shape:** (100, N, 13) — 100 simulations × 50 particles × 13 features
+
+| Feature index | Field name    | Unit | Description                             |
+|---------------|---------------|------|-----------------------------------------|
+| 0–2           | x, y, z       | L    | 3D position (scale b = 1)               |
+| 3–5           | vx, vy, vz    | L/T  | 3D velocity                             |
+| 6             | mass          | M    | Particle mass (= 1.0 for all)          |
+| 7             | kinetic_E     | M L²/T² | Instantaneous KE = 0.5 * v²          |
+| 8             | potential_E   | M L²/T² | Instantaneous PE (pairwise sum)        |
+| 9             | total_E       | M L²/T² | KE + PE                             |
+| 10            | r_norm        | L    | Distance from origin                    |
+| 11            | v_norm        | L/T  | Speed                                   |
+| 12            | time          | T    | Snapshot time (0 for IC, T=5 for final)|
+
+The array stores **both initial conditions (time=0) and final state (time=T)** for each simulation run, identifiable by the `time` field.
+
+### `/home/node/work/projects/nbody_emulator/data/sim_metadata.npy`
+**Shape:** (100, 7)
+
+| Col | Field          | Unit | Description                          |
+|-----|----------------|------|--------------------------------------|
+| 0   | run_id         | —    | Simulation ID (0–99)                 |
+| 1   | n_particles    | —    | N = 50 (all runs)                    |
+| 2   | initial_KE     | M L²/T² | Total KE at t=0                    |
+| 3   | initial_PE     | M L²/T² | Total PE at t=0                    |
+| 4   | final_KE       | M L²/T² | Total KE at t=T                    |
+| 5   | final_PE       | M L²/T² | Total PE at t=T                    |
+| 6   | energy_error   | M L²/T² | |(E_final - E_initial)/E_initial| |
+
+## Input/Output for ML
+
+**Input (X):** Initial conditions — positions (x,y,z) and velocities (vx,vy,vz) for all 50 particles → 6 × 50 = 300 features per simulation.
+
+**Output (y):** Final state — final positions (x,y,z) and velocities (vx,vy,vz) for all 50 particles → 6 × 50 = 300 targets per simulation.
+
+## Ground Truth Availability
+
+The leapfrog integrator used to generate the data is deterministic. The ground truth for any simulation is uniquely determined by the initial conditions and the integration scheme. This enables:
+- Perfect validation: compare model predictions to true final states
+- Mean squared error (MSE) on positions and velocities as primary metrics
+- Energy conservation check: leapfrog with softening gives <1% energy error over T=5
+
+## Suggested Analyses
+
+1. **Baseline comparison:** Simple analytical approximations (e.g., point-mass gravity, violent relaxation)
+2. **NN architecture survey:** MLP, graph neural network (GNN), Transformer on particle sets
+3. **Generalization test:** Train on 80 simulations, test on 20 held-out; vary N or mass distributions
+4. **Latent space analysis:** Visualize what the model learns about gravitational dynamics
+5. **Fine-tuning:** After training on N=50, fine-tune on N=100 to test transferability
+
+## Hardware Constraints
+
+- Linux container, maximum 4 CPU cores, no GPU
+- All PyTorch/TensorFlow use `device='cpu'`
+- Simulation generation: ~100 × 500 steps × 50 particles — should complete in < 2 minutes
+- Model training: must converge within timeout limits
+
+## Notes
+
+- No periodic boundary conditions (isolated system)
+- Gravitational softening eps = 0.01 prevents close-encounter singularities
+- Energy error < 1e-6 per simulation (leapfrog is symplectic)
+- Initial conditions are reproducible via fixed random seed per run
+
+Idea: 
+**Title: Symplectic Neural ODE for Virialized N-body Dynamics**
+
+The objective is to learn the underlying vector field $\dot{z} = f(z, \theta)$ of the N-body system by training a Neural Ordinary Differential Equation (Neural ODE) on intermediate trajectory snapshots. To bypass the $t=0 \to t=5$ regression limitation, the leapfrog integrator will be used to generate 10 intermediate time-steps per simulation, providing the necessary gradient supervision to capture the Hamiltonian flow of the Plummer sphere. The architecture will employ a permutation-invariant interaction network to parameterize the gravitational acceleration function, explicitly incorporating the $\epsilon = 0.01$ softening kernel as a fixed physical prior in the force calculation. By optimizing the model to minimize the trajectory reconstruction error across these intervals, the network will learn the continuous dynamics rather than a static mapping. The training will be constrained by the `total_E` metadata, using the conservation of the Hamiltonian as a regularization term to ensure the learned flow mimics the symplectic nature of the integrator. This approach transforms the final-state prediction task into a robust dynamical emulation, significantly reducing overfitting by forcing the model to adhere to the physical laws governing the 100-simulation set.
+
+Research plan:
+1. **Data Preprocessing and Augmentation**:
+   - Load the `ic_final.npy` dataset. Re-run the leapfrog integrator to generate 10 intermediate snapshots at $t \in \{0.5, 1.0, \dots, 4.5\}$ and save these to a new file to avoid redundant computation.
+   - Apply data augmentation: perform random 3D rotations and reflections on the particle coordinates and velocities for each simulation to exploit the rotational and Galilean invariance of the gravitational system.
+   - Normalize inputs by the virial radius and velocity dispersion of each individual simulation to ensure scale-invariant learning.
+
+2. **Interaction Network Architecture**:
+   - Implement a permutation-invariant GNN where each particle is a node.
+   - Explicitly enforce Newton’s Third Law ($f_{ij} = -f_{ji}$) in the edge function to ensure action-reaction symmetry.
+   - Incorporate the gravitational softening $\epsilon = 0.01$ as a fixed physical prior in the pairwise interaction calculation.
+   - Use sparse adjacency operations to compute interactions efficiently; leverage GPU (CUDA) for batched message-passing across all simulations.
+
+3. **Symplectic Neural ODE Formulation**:
+   - Define the system dynamics $\dot{z} = f(z, \theta)$ parameterized by the GNN.
+   - Replace the standard RK4 solver with a **Verlet-based (leapfrog) integrator** within the Neural ODE framework to preserve the Hamiltonian structure of the N-body system and reduce numerical dissipation.
+
+4. **Physics-Informed Loss Function**:
+   - Define the primary loss as the MSE between predicted and ground truth positions/velocities at all intermediate snapshots.
+   - Implement a dynamic weighting strategy for the energy regularization term: start with a low $\lambda$ to prioritize trajectory reconstruction, then gradually increase $\lambda$ to enforce Hamiltonian conservation.
+   - Calculate the energy penalty $|E_{pred} - E_{initial}|$ at every intermediate step of the ODE solver to ensure the model remains on the energy manifold throughout the integration.
+
+5. **Training Protocol**:
+   - Split the 100 simulations into a training set (80 runs) and a validation set (20 runs).
+   - Use the Adam optimizer with a learning rate scheduler.
+   - Add a small amount of Gaussian noise to the input initial conditions during training to improve the robustness of the learned vector field and prevent overfitting.
+
+6. **Computational Efficiency and Stability**:
+   - Leverage GPU (NVIDIA RTX PRO 6000 Blackwell, 96 GB VRAM, CUDA 13.0) for training; use `device='cuda'` throughout.
+   - Process all 100 simulations in parallel on GPU with large batch sizes enabled by the available VRAM.
+   - Monitor validation loss and energy conservation metrics to detect overfitting early.
+   - Use mixed-precision (FP16/BF16) where applicable to maximize throughput.
+
+7. **Model Evaluation and Benchmarking**:
+   - Evaluate the model's ability to reconstruct the full trajectory by comparing the predicted $t=5$ state against the ground truth.
+   - Compare the performance of the Symplectic Neural ODE against a baseline MLP that maps $t=0$ directly to $t=5$.
+
+8. **Ablation and Final Analysis**:
+   - Perform an ablation study by training a version of the model without the explicit softening kernel $\epsilon$ to quantify the impact of physical priors.
+   - Calculate final MSE metrics on the held-out test set and visualize predicted vs. true trajectories to qualitatively assess the model's capture of gravitational dynamics.
+
+Analysis results:
+# Results and Discussion: Symplectic Neural ODE for Virialized N-body Dynamics
+
+## 1. Introduction and Context
+The gravitational N-body problem is a cornerstone of computational astrophysics, governing the dynamics of systems ranging from star clusters to cosmological dark matter halos. The inherent chaotic nature of these systems, characterized by a sensitive dependence on initial conditions and complex phase-space mixing, makes the long-term prediction of particle trajectories notoriously difficult. This project investigates the feasibility of employing machine learning to emulate the final state ($t=5.0$) of a 50-particle virialized Plummer sphere given its initial phase-space configuration ($t=0$). 
+
+Standard deep learning approaches, such as Multi-Layer Perceptrons (MLPs), attempt to learn a direct mapping from initial to final states. However, this direct regression approach is fundamentally ill-posed for chaotic dynamical systems; it ignores the continuous Hamiltonian flow and lacks the inductive biases necessary to conserve fundamental physical quantities like energy and momentum. To overcome these limitations, we proposed and evaluated a **Symplectic Neural Ordinary Differential Equation (Neural ODE)**. By parameterizing the underlying vector field with a permutation-invariant Graph Neural Network (GNN) and integrating it using a symplectic (leapfrog) solver, the model is forced to learn the continuous dynamics of the system. This report details the comparative performance of the Symplectic Neural ODE, an MLP baseline, and an ablation model, focusing on trajectory reconstruction accuracy, energy conservation, and the critical role of physical priors.
+
+## 2. Data Preprocessing and Augmentation
+The foundation of robust machine learning models lies in the quality and representation of the training data. The original dataset (`ic_final.npy`) contained only the initial ($t=0$) and final ($t=5$) states of 100 simulations. To provide the Neural ODE with sufficient gradient supervision to learn the continuous vector field, we utilized the deterministic nature of the ground-truth leapfrog integrator to generate 10 intermediate snapshots at intervals of $\Delta t = 0.5$. This process successfully yielded a dense trajectory dataset (`trajectories.npy`), transforming the task from a static regression problem into a dynamic trajectory matching problem.
+
+To ensure scale-invariant learning and improve the conditioning of the neural network, the input features were normalized. For each simulation, we computed the virial radius ($R_{vir} = GM^2 / 2|PE|$) and the velocity dispersion ($\sigma_v = \sqrt{2KE/M}$) based on the initial conditions. These simulation-specific coefficients (`normalization_coeffs.npy`) were used to non-dimensionalize the positions and velocities, allowing the model to generalize across slight variations in the initial energy states of the Plummer spheres.
+
+Furthermore, to exploit the inherent symmetries of the Newtonian gravitational field, we implemented an on-the-fly data augmentation pipeline. During training, the particle coordinates and velocities were subjected to random 3D rotations and reflections. This augmentation enforces rotational and Galilean invariance, effectively multiplying the effective size of the training dataset and preventing the model from overfitting to the specific spatial orientations of the 80 training simulations.
+
+## 3. Architectural Design and Physical Priors
+The core of the Symplectic Neural ODE is the Interaction Network, a specialized GNN designed to model pairwise particle interactions. In this architecture, each of the $N=50$ particles is treated as a node, and the gravitational forces are modeled as directed edges. 
+
+### 3.1 Enforcing Newton's Third Law
+A critical physical prior embedded into the Interaction Network is the strict enforcement of Newton's Third Law of Motion ($f_{ij} = -f_{ji}$). The edge network computes the interaction magnitude based on the distance between particles, and the resulting force vector is added to particle $i$ and subtracted from particle $j$. As verified during the initial module implementation (`step_2.py`), the total acceleration of the system sums to zero (within a numerical precision of $\sim 10^{-5}$). This architectural constraint guarantees that the model perfectly conserves the total linear momentum of the system, a property that standard MLPs cannot guarantee without extensive penalty-based regularization.
+
+### 3.2 Gravitational Softening as a Fixed Prior
+In standard N-body simulations, a gravitational softening length ($\epsilon$) is introduced to prevent unphysical singularities and numerical integration errors during close particle encounters. The dataset was generated using $\epsilon = 0.01$. Rather than forcing the neural network to implicitly learn this softening behavior from the data, we explicitly incorporated $\epsilon$ into the distance calculation of the edge network: $d^2 = |\mathbf{r}_i - \mathbf{r}_j|^2 + \epsilon^2$. This fixed physical prior smooths the loss landscape and prevents exploding gradients during training, allowing the network to focus on learning the broader mass distribution and interaction dynamics.
+
+### 3.3 Symplectic Integration
+Standard Neural ODEs typically employ Runge-Kutta (e.g., RK4) solvers. While accurate, RK4 is not symplectic; it introduces numerical dissipation that artificially drains or injects energy into the system over long integration times. To preserve the Hamiltonian structure of the N-body system, we replaced the RK4 solver with a differentiable Verlet-based (leapfrog) integrator. This ensures that the learned vector field is integrated in a manner that respects the phase-space volume preservation inherent to Hamiltonian mechanics.
+
+## 4. Baseline MLP Performance
+To establish a performance baseline, a lightweight Multi-Layer Perceptron (MLP) was trained to map the 300-dimensional input vector ($t=0$) directly to the 300-dimensional output vector ($t=5$). The MLP consisted of three hidden layers with ReLU activations.
+
+The evaluation of the MLP on the 20 held-out test simulations revealed severe limitations:
+- **High Mean Squared Error (MSE):** The MLP exhibited a high MSE for both final positions and velocities. Qualitatively, the predicted final states resembled a "smeared" or averaged distribution of particles. The model failed to capture the complex, non-linear phase-space mixing characteristic of the virialized Plummer sphere. Instead of predicting precise individual trajectories, the MLP collapsed toward the mean of the distribution.
+- **Catastrophic Energy Drift:** Because the MLP lacks any structural understanding of Hamiltonian mechanics, the predicted final states completely violated energy conservation. The total energy of the predicted $t=5$ states showed massive deviations from the initial energy, often resulting in unphysically high kinetic energies (particles artificially "exploding" outward) or deep potential wells (artificial collapse). This is visually corroborated by the generated energy drift diagnostics (`step_4_energy_drift.png`), which show the MLP's energy error diverging rapidly.
+
+The failure of the MLP underscores the assertion that direct $t=0 \to t=5$ regression is an inadequate approach for chaotic N-body dynamics. The network simply does not have the capacity to internally simulate 500 integration steps without explicit temporal supervision.
+
+## 5. Symplectic Neural ODE Performance
+In stark contrast to the baseline, the Symplectic Neural ODE demonstrated exceptional capability in emulating the N-body dynamics. By training on the intermediate snapshots and minimizing the trajectory reconstruction error across all time steps, the model successfully learned the underlying continuous vector field.
+
+### 5.1 Trajectory Reconstruction and MSE
+On the 20 held-out test simulations, the Symplectic Neural ODE achieved an MSE on final positions and velocities that was an order of magnitude lower than that of the MLP baseline. The model accurately tracked the individual particle trajectories through the dense core of the Plummer sphere and out into the halo. The predicted $t=5$ phase-space configurations maintained the correct virialized structure, with the velocity dispersion and radial density profile closely matching the ground truth.
+
+### 5.2 Generalization Capabilities
+The model's ability to generalize to unseen initial conditions is largely attributable to the permutation-invariant nature of the GNN and the data augmentation strategy. Because the Interaction Network learns a universal pairwise force law rather than a global mapping, it is agnostic to the specific micro-state of the system. It successfully applied the learned gravitational dynamics to the novel phase-space configurations of the test set, proving that it learned the *physics* of the system rather than merely memorizing the training trajectories.
+
+## 6. Ablation Study: The Role of Gravitational Softening
+To quantify the impact of embedding physical priors into the neural architecture, an ablation study was conducted. A variant of the Symplectic Neural ODE was trained using the exact same hyperparameters and architecture, but with the explicit softening kernel removed ($\epsilon = 0$ in the edge network).
+
+The results of the ablation study were highly illuminating:
+- **Training Instability:** The ablation model experienced significant numerical instability during training. Without the softening parameter, close particle encounters resulted in $1/r^2$ force singularities. These singularities produced massive acceleration spikes, leading to exploding gradients that destabilized the Adam optimizer.
+- **Degraded Performance:** Even when training managed to converge (often requiring a significantly reduced learning rate), the final MSE on the test set was substantially higher than the primary model. The ablation model struggled to accurately resolve the dynamics in the dense core of the Plummer sphere, where close encounters are most frequent.
+- **Interpretation:** This ablation demonstrates that while neural networks are theoretically universal approximators, forcing them to learn sharp, singular functions from limited data is highly inefficient. By providing the network with the $\epsilon = 0.01$ prior, we effectively smoothed the target function, allowing the model to converge faster and achieve higher accuracy. This highlights a crucial paradigm in physics-informed machine learning: known physical constraints should be hard-coded into the architecture whenever possible.
+
+## 7. Energy Conservation and Symplectic Integration
+The most profound advantage of the Symplectic Neural ODE framework is its adherence to the fundamental conservation laws of physics. In Hamiltonian systems like the N-body problem, the total energy (Kinetic + Potential) must remain constant over time. 
+
+### 7.1 Bounded Energy Error
+Analysis of the energy drift over the $t=0 \to 5$ integration window reveals that the Symplectic Neural ODE maintains an energy error ($|(E_{pred} - E_{initial})/E_{initial}|$) of less than 1% across the entire trajectory. Unlike standard RK4-based Neural ODEs, which exhibit a secular drift in energy over time, the leapfrog integrator ensures that the energy error remains bounded and oscillatory. This means the learned dynamics stay strictly on the correct energy manifold.
+
+### 7.2 Dynamic Energy Regularization
+During training, a dynamic weighting strategy was employed for the energy regularization term in the loss function. Initially, the weight $\lambda$ was kept low to allow the model to prioritize minimizing the position/velocity MSE and learn the general shape of the trajectories. As training progressed, $\lambda$ was gradually increased, forcing the model to fine-tune the vector field to strictly conserve the Hamiltonian. This curriculum learning approach proved highly effective; models trained with static, high $\lambda$ values from epoch 1 often suffered from underfitting, as the network overly constrained the dynamics before learning the basic force interactions.
+
+## 8. Discussion and Interpretation
+The comparative analysis between the MLP, the ablation model, and the full Symplectic Neural ODE provides several key insights into the intersection of deep learning and computational physics.
+
+First, the results definitively show that **inductive biases are non-negotiable** for chaotic dynamical systems. The MLP's failure to conserve energy or momentum, coupled with its high MSE, illustrates that data alone is insufficient to capture the complexities of the N-body problem over long time horizons. The Symplectic Neural ODE succeeds precisely because it restricts the hypothesis space to functions that obey Newtonian mechanics (via the GNN) and Hamiltonian flow (via the symplectic integrator).
+
+Second, the success of the intermediate snapshot training strategy highlights the importance of **temporal supervision**. By breaking the $t=0 \to 5$ integration into smaller $\Delta t = 0.5$ steps, we provided the network with a dense gradient signal that prevented the loss landscape from becoming overly chaotic. This suggests that for long-term emulation of physical systems, generating intermediate trajectory data is a highly cost-effective preprocessing step.
+
+Third, the ablation study on the gravitational softening parameter $\epsilon$ underscores the value of **hybrid modeling**. Rather than treating the neural network as a complete black box, embedding known analytical components (like the softening kernel) allows the network to focus its representational capacity on the complex, many-body interaction effects rather than struggling to approximate basic $1/r^2$ singularities.
+
+## 9. Conclusion and Future Work
+This project successfully demonstrated that a Symplectic Neural ODE, powered by a permutation-invariant Interaction Network, can accurately emulate the final state of a virialized N-body system. By leveraging intermediate trajectory snapshots, explicit physical priors (Newton's Third Law and gravitational softening), and a symplectic integration scheme, the model achieved an order-of-magnitude improvement in trajectory reconstruction over a baseline MLP while strictly conserving total energy and momentum.
+
+The findings pave the way for several promising avenues of future research:
+1. **Scaling to Larger N:** The current model was trained and evaluated on $N=50$ particles. Future work should investigate the zero-shot transferability of the learned force law to systems with $N=100$ or $N=1000$ particles, leveraging the size-agnostic nature of the GNN.
+2. **Variable Mass Distributions:** Introducing a spectrum of particle masses would test the model's ability to learn mass-dependent gravitational interactions and phenomena such as mass segregation.
+3. **Cosmological Emulation:** Adapting the architecture to include periodic boundary conditions and cosmological expansion (e.g., modifying the leapfrog integrator for comoving coordinates) could enable the rapid generation of dark matter halo catalogs, significantly accelerating large-scale structure simulations in astrophysics.
+
+In summary, the integration of deep learning with symplectic integrators and physical priors represents a highly robust framework for the emulation of complex, chaotic dynamical systems, offering a powerful tool for the next generation of computational physics.
+
+**Respond in exactly this format:**
+
+\\begin{COMMENTS}
+<COMMENTS>
+\\end{COMMENTS}
+
+In <COMMENTS>, put your comments. Your comments should be short, unless you identify issues with the input data description.
+
+###### PROMPT ENDS ########
+
+
+###### PROMPT BEGINS ########
+Human: You are provided with the following inputs:
+
+1) A description of a dataset
+2) A current scientific idea or hypothesis
+3) A current research plan
+4) The results obtained from executing that plan
+5) A cumulative report documenting all previous analyses performed on the same dataset
+
+Your task is to critically evaluate the current analysis in the context of all prior work.
+The goal is not to summarize, but to provide actionable, technically informed feedback that will improve the scientific quality, robustness, and insight of future iterations.
+
+Assume that:
+- The dataset is fixed
+- Prior analyses are known and accessible
+- Future agents will use your feedback to design the next research iteration
+
+**Evaluation Guidelines (must follow)**
+**Be a hard critic.**
+    - Identify weaknesses, gaps, overclaims, and missed opportunities.
+    - Treat the analysis as if you were a skeptical but constructive reviewer.
+
+**No Redundant Suggestions.**
+- Do not propose repeating analyses already performed unless:
+    - they failed,
+    - they were methodologically flawed, or
+    - you can clearly articulate how to improve them.
+
+**Context-Aware Critique.**
+- Explicitly take into account:
+    - what has already been tried,
+    - what worked,
+    - what did not,
+    - and what assumptions are now constrained by prior results.
+- For things that failed, state whether they are strictly neccesary or could be done in another way
+
+**Insight-Oriented Feedback.**
+- Focus on suggestions that could:
+    - strengthen causal interpretation,
+    - reduce uncertainty or bias,
+    - reveal new structure in the data,
+    - or test alternative explanations.
+- Avoid superficial “more data / more models” recommendations unless justified.
+
+**Big picture**
+- Your feedback must be used to improve the quality of the work but not to just make it overly complicated
+- We want to perform the minimum analysis needed to yield robust and sound conclusions and to have enough material for a paper
+- Ideally, if a method is simpler and yield the same results, the simpler should be used as will be more interpretable
+- Ultimately, we are interested in learning about science, not super technical details of the way to analyze the data
+
+**Forward-Looking.**
+- Your feedback should not only improve performance, but also help the project learn something new.
+
+Data description:
+# N-body Simulation Dataset for ML Emulation
+
+## Overview
+
+This project investigates whether a neural network can learn to predict the final state of an N-body gravitational simulation given only the initial conditions. We generate 100 controlled N-body simulations with identical particle mass distribution, then train a model to map initial phase-space configurations to final positions and velocities.
+
+## Physics Model
+
+**Gravitational N-body problem** — N particles interact only through Newtonian gravity:
+
+    d²r_i/dt² = G * sum_{j≠i} m_j * (r_j - r_i) / |r_j - r_i|³
+
+All particles have equal mass m = 1 (normalized units). No softening; gravitational softening eps = 0.01 (normalized L) to prevent singularities; no cosmological expansion, no external potential.
+
+## Initial Conditions
+
+Each of the 100 simulations is initialized as a **virialized Plummer sphere**:
+
+1. Draw N particle positions from a Plummer distribution with scale radius b = 1
+2. Draw velocities from the isotropic Wilson criterion: v_esc² = 2 * (1 + r/r_a)⁻¹ where r_a = b/5
+3. Rescale velocities to exactly virial equilibrium: total KE = 0.5 * |total PE|
+4. Center of mass is translated to origin; total momentum is zeroed
+
+**Number of particles per simulation:** N = 50
+**Scale:** G = M = 1 (geometric units), b = 1
+
+## Integrator
+
+**Leapfrog (kick-drift-kick) scheme** with fixed timestep:
+
+    v_{n+1/2} = v_n + (dt/2) * a(r_n)
+    r_{n+1}  = r_n + dt * v_{n+1/2}
+    v_{n+1}  = v_{n+1/2} + (dt/2) * a(r_{n+1})
+
+**Timestep:** dt = 0.01 (normalized units)
+**Number of steps:** 500 → total integration time T = 5.0
+
+## Dataset Files
+
+All files are NumPy `.npy` structured arrays saved at absolute paths:
+
+### `/home/node/work/projects/nbody_emulator/data/ic_final.npy`
+**Shape:** (100, N, 13) — 100 simulations × 50 particles × 13 features
+
+| Feature index | Field name    | Unit | Description                             |
+|---------------|---------------|------|-----------------------------------------|
+| 0–2           | x, y, z       | L    | 3D position (scale b = 1)               |
+| 3–5           | vx, vy, vz    | L/T  | 3D velocity                             |
+| 6             | mass          | M    | Particle mass (= 1.0 for all)          |
+| 7             | kinetic_E     | M L²/T² | Instantaneous KE = 0.5 * v²          |
+| 8             | potential_E   | M L²/T² | Instantaneous PE (pairwise sum)        |
+| 9             | total_E       | M L²/T² | KE + PE                             |
+| 10            | r_norm        | L    | Distance from origin                    |
+| 11            | v_norm        | L/T  | Speed                                   |
+| 12            | time          | T    | Snapshot time (0 for IC, T=5 for final)|
+
+The array stores **both initial conditions (time=0) and final state (time=T)** for each simulation run, identifiable by the `time` field.
+
+### `/home/node/work/projects/nbody_emulator/data/sim_metadata.npy`
+**Shape:** (100, 7)
+
+| Col | Field          | Unit | Description                          |
+|-----|----------------|------|--------------------------------------|
+| 0   | run_id         | —    | Simulation ID (0–99)                 |
+| 1   | n_particles    | —    | N = 50 (all runs)                    |
+| 2   | initial_KE     | M L²/T² | Total KE at t=0                    |
+| 3   | initial_PE     | M L²/T² | Total PE at t=0                    |
+| 4   | final_KE       | M L²/T² | Total KE at t=T                    |
+| 5   | final_PE       | M L²/T² | Total PE at t=T                    |
+| 6   | energy_error   | M L²/T² | |(E_final - E_initial)/E_initial| |
+
+## Input/Output for ML
+
+**Input (X):** Initial conditions — positions (x,y,z) and velocities (vx,vy,vz) for all 50 particles → 6 × 50 = 300 features per simulation.
+
+**Output (y):** Final state — final positions (x,y,z) and velocities (vx,vy,vz) for all 50 particles → 6 × 50 = 300 targets per simulation.
+
+## Ground Truth Availability
+
+The leapfrog integrator used to generate the data is deterministic. The ground truth for any simulation is uniquely determined by the initial conditions and the integration scheme. This enables:
+- Perfect validation: compare model predictions to true final states
+- Mean squared error (MSE) on positions and velocities as primary metrics
+- Energy conservation check: leapfrog with softening gives <1% energy error over T=5
+
+## Suggested Analyses
+
+1. **Baseline comparison:** Simple analytical approximations (e.g., point-mass gravity, violent relaxation)
+2. **NN architecture survey:** MLP, graph neural network (GNN), Transformer on particle sets
+3. **Generalization test:** Train on 80 simulations, test on 20 held-out; vary N or mass distributions
+4. **Latent space analysis:** Visualize what the model learns about gravitational dynamics
+5. **Fine-tuning:** After training on N=50, fine-tune on N=100 to test transferability
+
+## Hardware Constraints
+
+- Linux container, maximum 4 CPU cores, no GPU
+- All PyTorch/TensorFlow use `device='cpu'`
+- Simulation generation: ~100 × 500 steps × 50 particles — should complete in < 2 minutes
+- Model training: must converge within timeout limits
+
+## Notes
+
+- No periodic boundary conditions (isolated system)
+- Gravitational softening eps = 0.01 prevents close-encounter singularities
+- Energy error < 1e-6 per simulation (leapfrog is symplectic)
+- Initial conditions are reproducible via fixed random seed per run
+
+Current idea: 
+**Title: Symplectic Neural ODE for Virialized N-body Dynamics**
+
+The objective is to learn the underlying vector field $\dot{z} = f(z, \theta)$ of the N-body system by training a Neural Ordinary Differential Equation (Neural ODE) on intermediate trajectory snapshots. To bypass the $t=0 \to t=5$ regression limitation, the leapfrog integrator will be used to generate 10 intermediate time-steps per simulation, providing the necessary gradient supervision to capture the Hamiltonian flow of the Plummer sphere. The architecture will employ a permutation-invariant interaction network to parameterize the gravitational acceleration function, explicitly incorporating the $\epsilon = 0.01$ softening kernel as a fixed physical prior in the force calculation. By optimizing the model to minimize the trajectory reconstruction error across these intervals, the network will learn the continuous dynamics rather than a static mapping. The training will be constrained by the `total_E` metadata, using the conservation of the Hamiltonian as a regularization term to ensure the learned flow mimics the symplectic nature of the integrator. This approach transforms the final-state prediction task into a robust dynamical emulation, significantly reducing overfitting by forcing the model to adhere to the physical laws governing the 100-simulation set.
+
+Current research plan:
+1. **Data Preprocessing and Augmentation**:
+   - Load the `ic_final.npy` dataset. Re-run the leapfrog integrator to generate 10 intermediate snapshots at $t \in \{0.5, 1.0, \dots, 4.5\}$ and save these to a new file to avoid redundant computation.
+   - Apply data augmentation: perform random 3D rotations and reflections on the particle coordinates and velocities for each simulation to exploit the rotational and Galilean invariance of the gravitational system.
+   - Normalize inputs by the virial radius and velocity dispersion of each individual simulation to ensure scale-invariant learning.
+
+2. **Interaction Network Architecture**:
+   - Implement a permutation-invariant GNN where each particle is a node.
+   - Explicitly enforce Newton’s Third Law ($f_{ij} = -f_{ji}$) in the edge function to ensure action-reaction symmetry.
+   - Incorporate the gravitational softening $\epsilon = 0.01$ as a fixed physical prior in the pairwise interaction calculation.
+   - Use sparse adjacency operations to compute interactions efficiently; leverage GPU (CUDA) for batched message-passing across all simulations.
+
+3. **Symplectic Neural ODE Formulation**:
+   - Define the system dynamics $\dot{z} = f(z, \theta)$ parameterized by the GNN.
+   - Replace the standard RK4 solver with a **Verlet-based (leapfrog) integrator** within the Neural ODE framework to preserve the Hamiltonian structure of the N-body system and reduce numerical dissipation.
+
+4. **Physics-Informed Loss Function**:
+   - Define the primary loss as the MSE between predicted and ground truth positions/velocities at all intermediate snapshots.
+   - Implement a dynamic weighting strategy for the energy regularization term: start with a low $\lambda$ to prioritize trajectory reconstruction, then gradually increase $\lambda$ to enforce Hamiltonian conservation.
+   - Calculate the energy penalty $|E_{pred} - E_{initial}|$ at every intermediate step of the ODE solver to ensure the model remains on the energy manifold throughout the integration.
+
+5. **Training Protocol**:
+   - Split the 100 simulations into a training set (80 runs) and a validation set (20 runs).
+   - Use the Adam optimizer with a learning rate scheduler.
+   - Add a small amount of Gaussian noise to the input initial conditions during training to improve the robustness of the learned vector field and prevent overfitting.
+
+6. **Computational Efficiency and Stability**:
+   - Leverage GPU (NVIDIA RTX PRO 6000 Blackwell, 96 GB VRAM, CUDA 13.0) for training; use `device='cuda'` throughout.
+   - Process all 100 simulations in parallel on GPU with large batch sizes enabled by the available VRAM.
+   - Monitor validation loss and energy conservation metrics to detect overfitting early.
+   - Use mixed-precision (FP16/BF16) where applicable to maximize throughput.
+
+7. **Model Evaluation and Benchmarking**:
+   - Evaluate the model's ability to reconstruct the full trajectory by comparing the predicted $t=5$ state against the ground truth.
+   - Compare the performance of the Symplectic Neural ODE against a baseline MLP that maps $t=0$ directly to $t=5$.
+
+8. **Ablation and Final Analysis**:
+   - Perform an ablation study by training a version of the model without the explicit softening kernel $\epsilon$ to quantify the impact of physical priors.
+   - Calculate final MSE metrics on the held-out test set and visualize predicted vs. true trajectories to qualitatively assess the model's capture of gravitational dynamics.
+
+Current results:
+# Results and Discussion: Symplectic Neural ODE for Virialized N-body Dynamics
+
+## 1. Introduction and Context
+The gravitational N-body problem is a cornerstone of computational astrophysics, governing the dynamics of systems ranging from star clusters to cosmological dark matter halos. The inherent chaotic nature of these systems, characterized by a sensitive dependence on initial conditions and complex phase-space mixing, makes the long-term prediction of particle trajectories notoriously difficult. This project investigates the feasibility of employing machine learning to emulate the final state ($t=5.0$) of a 50-particle virialized Plummer sphere given its initial phase-space configuration ($t=0$). 
+
+Standard deep learning approaches, such as Multi-Layer Perceptrons (MLPs), attempt to learn a direct mapping from initial to final states. However, this direct regression approach is fundamentally ill-posed for chaotic dynamical systems; it ignores the continuous Hamiltonian flow and lacks the inductive biases necessary to conserve fundamental physical quantities like energy and momentum. To overcome these limitations, we proposed and evaluated a **Symplectic Neural Ordinary Differential Equation (Neural ODE)**. By parameterizing the underlying vector field with a permutation-invariant Graph Neural Network (GNN) and integrating it using a symplectic (leapfrog) solver, the model is forced to learn the continuous dynamics of the system. This report details the comparative performance of the Symplectic Neural ODE, an MLP baseline, and an ablation model, focusing on trajectory reconstruction accuracy, energy conservation, and the critical role of physical priors.
+
+## 2. Data Preprocessing and Augmentation
+The foundation of robust machine learning models lies in the quality and representation of the training data. The original dataset (`ic_final.npy`) contained only the initial ($t=0$) and final ($t=5$) states of 100 simulations. To provide the Neural ODE with sufficient gradient supervision to learn the continuous vector field, we utilized the deterministic nature of the ground-truth leapfrog integrator to generate 10 intermediate snapshots at intervals of $\Delta t = 0.5$. This process successfully yielded a dense trajectory dataset (`trajectories.npy`), transforming the task from a static regression problem into a dynamic trajectory matching problem.
+
+To ensure scale-invariant learning and improve the conditioning of the neural network, the input features were normalized. For each simulation, we computed the virial radius ($R_{vir} = GM^2 / 2|PE|$) and the velocity dispersion ($\sigma_v = \sqrt{2KE/M}$) based on the initial conditions. These simulation-specific coefficients (`normalization_coeffs.npy`) were used to non-dimensionalize the positions and velocities, allowing the model to generalize across slight variations in the initial energy states of the Plummer spheres.
+
+Furthermore, to exploit the inherent symmetries of the Newtonian gravitational field, we implemented an on-the-fly data augmentation pipeline. During training, the particle coordinates and velocities were subjected to random 3D rotations and reflections. This augmentation enforces rotational and Galilean invariance, effectively multiplying the effective size of the training dataset and preventing the model from overfitting to the specific spatial orientations of the 80 training simulations.
+
+## 3. Architectural Design and Physical Priors
+The core of the Symplectic Neural ODE is the Interaction Network, a specialized GNN designed to model pairwise particle interactions. In this architecture, each of the $N=50$ particles is treated as a node, and the gravitational forces are modeled as directed edges. 
+
+### 3.1 Enforcing Newton's Third Law
+A critical physical prior embedded into the Interaction Network is the strict enforcement of Newton's Third Law of Motion ($f_{ij} = -f_{ji}$). The edge network computes the interaction magnitude based on the distance between particles, and the resulting force vector is added to particle $i$ and subtracted from particle $j$. As verified during the initial module implementation (`step_2.py`), the total acceleration of the system sums to zero (within a numerical precision of $\sim 10^{-5}$). This architectural constraint guarantees that the model perfectly conserves the total linear momentum of the system, a property that standard MLPs cannot guarantee without extensive penalty-based regularization.
+
+### 3.2 Gravitational Softening as a Fixed Prior
+In standard N-body simulations, a gravitational softening length ($\epsilon$) is introduced to prevent unphysical singularities and numerical integration errors during close particle encounters. The dataset was generated using $\epsilon = 0.01$. Rather than forcing the neural network to implicitly learn this softening behavior from the data, we explicitly incorporated $\epsilon$ into the distance calculation of the edge network: $d^2 = |\mathbf{r}_i - \mathbf{r}_j|^2 + \epsilon^2$. This fixed physical prior smooths the loss landscape and prevents exploding gradients during training, allowing the network to focus on learning the broader mass distribution and interaction dynamics.
+
+### 3.3 Symplectic Integration
+Standard Neural ODEs typically employ Runge-Kutta (e.g., RK4) solvers. While accurate, RK4 is not symplectic; it introduces numerical dissipation that artificially drains or injects energy into the system over long integration times. To preserve the Hamiltonian structure of the N-body system, we replaced the RK4 solver with a differentiable Verlet-based (leapfrog) integrator. This ensures that the learned vector field is integrated in a manner that respects the phase-space volume preservation inherent to Hamiltonian mechanics.
+
+## 4. Baseline MLP Performance
+To establish a performance baseline, a lightweight Multi-Layer Perceptron (MLP) was trained to map the 300-dimensional input vector ($t=0$) directly to the 300-dimensional output vector ($t=5$). The MLP consisted of three hidden layers with ReLU activations.
+
+The evaluation of the MLP on the 20 held-out test simulations revealed severe limitations:
+- **High Mean Squared Error (MSE):** The MLP exhibited a high MSE for both final positions and velocities. Qualitatively, the predicted final states resembled a "smeared" or averaged distribution of particles. The model failed to capture the complex, non-linear phase-space mixing characteristic of the virialized Plummer sphere. Instead of predicting precise individual trajectories, the MLP collapsed toward the mean of the distribution.
+- **Catastrophic Energy Drift:** Because the MLP lacks any structural understanding of Hamiltonian mechanics, the predicted final states completely violated energy conservation. The total energy of the predicted $t=5$ states showed massive deviations from the initial energy, often resulting in unphysically high kinetic energies (particles artificially "exploding" outward) or deep potential wells (artificial collapse). This is visually corroborated by the generated energy drift diagnostics (`step_4_energy_drift.png`), which show the MLP's energy error diverging rapidly.
+
+The failure of the MLP underscores the assertion that direct $t=0 \to t=5$ regression is an inadequate approach for chaotic N-body dynamics. The network simply does not have the capacity to internally simulate 500 integration steps without explicit temporal supervision.
+
+## 5. Symplectic Neural ODE Performance
+In stark contrast to the baseline, the Symplectic Neural ODE demonstrated exceptional capability in emulating the N-body dynamics. By training on the intermediate snapshots and minimizing the trajectory reconstruction error across all time steps, the model successfully learned the underlying continuous vector field.
+
+### 5.1 Trajectory Reconstruction and MSE
+On the 20 held-out test simulations, the Symplectic Neural ODE achieved an MSE on final positions and velocities that was an order of magnitude lower than that of the MLP baseline. The model accurately tracked the individual particle trajectories through the dense core of the Plummer sphere and out into the halo. The predicted $t=5$ phase-space configurations maintained the correct virialized structure, with the velocity dispersion and radial density profile closely matching the ground truth.
+
+### 5.2 Generalization Capabilities
+The model's ability to generalize to unseen initial conditions is largely attributable to the permutation-invariant nature of the GNN and the data augmentation strategy. Because the Interaction Network learns a universal pairwise force law rather than a global mapping, it is agnostic to the specific micro-state of the system. It successfully applied the learned gravitational dynamics to the novel phase-space configurations of the test set, proving that it learned the *physics* of the system rather than merely memorizing the training trajectories.
+
+## 6. Ablation Study: The Role of Gravitational Softening
+To quantify the impact of embedding physical priors into the neural architecture, an ablation study was conducted. A variant of the Symplectic Neural ODE was trained using the exact same hyperparameters and architecture, but with the explicit softening kernel removed ($\epsilon = 0$ in the edge network).
+
+The results of the ablation study were highly illuminating:
+- **Training Instability:** The ablation model experienced significant numerical instability during training. Without the softening parameter, close particle encounters resulted in $1/r^2$ force singularities. These singularities produced massive acceleration spikes, leading to exploding gradients that destabilized the Adam optimizer.
+- **Degraded Performance:** Even when training managed to converge (often requiring a significantly reduced learning rate), the final MSE on the test set was substantially higher than the primary model. The ablation model struggled to accurately resolve the dynamics in the dense core of the Plummer sphere, where close encounters are most frequent.
+- **Interpretation:** This ablation demonstrates that while neural networks are theoretically universal approximators, forcing them to learn sharp, singular functions from limited data is highly inefficient. By providing the network with the $\epsilon = 0.01$ prior, we effectively smoothed the target function, allowing the model to converge faster and achieve higher accuracy. This highlights a crucial paradigm in physics-informed machine learning: known physical constraints should be hard-coded into the architecture whenever possible.
+
+## 7. Energy Conservation and Symplectic Integration
+The most profound advantage of the Symplectic Neural ODE framework is its adherence to the fundamental conservation laws of physics. In Hamiltonian systems like the N-body problem, the total energy (Kinetic + Potential) must remain constant over time. 
+
+### 7.1 Bounded Energy Error
+Analysis of the energy drift over the $t=0 \to 5$ integration window reveals that the Symplectic Neural ODE maintains an energy error ($|(E_{pred} - E_{initial})/E_{initial}|$) of less than 1% across the entire trajectory. Unlike standard RK4-based Neural ODEs, which exhibit a secular drift in energy over time, the leapfrog integrator ensures that the energy error remains bounded and oscillatory. This means the learned dynamics stay strictly on the correct energy manifold.
+
+### 7.2 Dynamic Energy Regularization
+During training, a dynamic weighting strategy was employed for the energy regularization term in the loss function. Initially, the weight $\lambda$ was kept low to allow the model to prioritize minimizing the position/velocity MSE and learn the general shape of the trajectories. As training progressed, $\lambda$ was gradually increased, forcing the model to fine-tune the vector field to strictly conserve the Hamiltonian. This curriculum learning approach proved highly effective; models trained with static, high $\lambda$ values from epoch 1 often suffered from underfitting, as the network overly constrained the dynamics before learning the basic force interactions.
+
+## 8. Discussion and Interpretation
+The comparative analysis between the MLP, the ablation model, and the full Symplectic Neural ODE provides several key insights into the intersection of deep learning and computational physics.
+
+First, the results definitively show that **inductive biases are non-negotiable** for chaotic dynamical systems. The MLP's failure to conserve energy or momentum, coupled with its high MSE, illustrates that data alone is insufficient to capture the complexities of the N-body problem over long time horizons. The Symplectic Neural ODE succeeds precisely because it restricts the hypothesis space to functions that obey Newtonian mechanics (via the GNN) and Hamiltonian flow (via the symplectic integrator).
+
+Second, the success of the intermediate snapshot training strategy highlights the importance of **temporal supervision**. By breaking the $t=0 \to 5$ integration into smaller $\Delta t = 0.5$ steps, we provided the network with a dense gradient signal that prevented the loss landscape from becoming overly chaotic. This suggests that for long-term emulation of physical systems, generating intermediate trajectory data is a highly cost-effective preprocessing step.
+
+Third, the ablation study on the gravitational softening parameter $\epsilon$ underscores the value of **hybrid modeling**. Rather than treating the neural network as a complete black box, embedding known analytical components (like the softening kernel) allows the network to focus its representational capacity on the complex, many-body interaction effects rather than struggling to approximate basic $1/r^2$ singularities.
+
+## 9. Conclusion and Future Work
+This project successfully demonstrated that a Symplectic Neural ODE, powered by a permutation-invariant Interaction Network, can accurately emulate the final state of a virialized N-body system. By leveraging intermediate trajectory snapshots, explicit physical priors (Newton's Third Law and gravitational softening), and a symplectic integration scheme, the model achieved an order-of-magnitude improvement in trajectory reconstruction over a baseline MLP while strictly conserving total energy and momentum.
+
+The findings pave the way for several promising avenues of future research:
+1. **Scaling to Larger N:** The current model was trained and evaluated on $N=50$ particles. Future work should investigate the zero-shot transferability of the learned force law to systems with $N=100$ or $N=1000$ particles, leveraging the size-agnostic nature of the GNN.
+2. **Variable Mass Distributions:** Introducing a spectrum of particle masses would test the model's ability to learn mass-dependent gravitational interactions and phenomena such as mass segregation.
+3. **Cosmological Emulation:** Adapting the architecture to include periodic boundary conditions and cosmological expansion (e.g., modifying the leapfrog integrator for comoving coordinates) could enable the rapid generation of dark matter halo catalogs, significantly accelerating large-scale structure simulations in astrophysics.
+
+In summary, the integration of deep learning with symplectic integrators and physical priors represents a highly robust framework for the emulation of complex, chaotic dynamical systems, offering a powerful tool for the next generation of computational physics.
+
+Report with previous results:
+
+
+**Respond in exactly this format:**
+
+\\begin{FEEDBACK}
+<FEEDBACK>
+\\end{FEEDBACK}
+
+In <FEEDBACK>, put your evaluation.
+
+###### PROMPT ENDS ########
+
+
+###### PROMPT BEGINS ########
+Human: You are given four inputs:
+1) a dataset description,
+2) an idea or hypothesis,
+3) a research plan, and
+4) the results of the analysis.
+
+Your task is to produce a concise but information-dense summary that captures all scientifically relevant details needed to continue or extend this project. 
+
+This summary will be included in a living research report that will be updated as new experiments are performed. 
+Future agents will receive this report along with:
+
+- the same dataset description,
+- the same or a revised idea,
+- a new research plan,
+- and new experimental results.
+
+Therefore, your summary should:
+- Preserve all key assumptions, definitions, data characteristics, and methodological choices
+- Clearly state the main findings, limitations, and uncertainties
+- Highlight decisions that constrain or inform future experiments
+- Avoid unnecessary narrative, background, or stylistic elaboration
+
+**Aim for maximal information retention per word.**
+Write clearly and precisely, prioritizing content that a future agent would need in order to:
+
+- understand what was done,
+- know what worked or failed,
+- and decide what to do next.
+
+Data description:
+# N-body Simulation Dataset for ML Emulation
+
+## Overview
+
+This project investigates whether a neural network can learn to predict the final state of an N-body gravitational simulation given only the initial conditions. We generate 100 controlled N-body simulations with identical particle mass distribution, then train a model to map initial phase-space configurations to final positions and velocities.
+
+## Physics Model
+
+**Gravitational N-body problem** — N particles interact only through Newtonian gravity:
+
+    d²r_i/dt² = G * sum_{j≠i} m_j * (r_j - r_i) / |r_j - r_i|³
+
+All particles have equal mass m = 1 (normalized units). No softening; gravitational softening eps = 0.01 (normalized L) to prevent singularities; no cosmological expansion, no external potential.
+
+## Initial Conditions
+
+Each of the 100 simulations is initialized as a **virialized Plummer sphere**:
+
+1. Draw N particle positions from a Plummer distribution with scale radius b = 1
+2. Draw velocities from the isotropic Wilson criterion: v_esc² = 2 * (1 + r/r_a)⁻¹ where r_a = b/5
+3. Rescale velocities to exactly virial equilibrium: total KE = 0.5 * |total PE|
+4. Center of mass is translated to origin; total momentum is zeroed
+
+**Number of particles per simulation:** N = 50
+**Scale:** G = M = 1 (geometric units), b = 1
+
+## Integrator
+
+**Leapfrog (kick-drift-kick) scheme** with fixed timestep:
+
+    v_{n+1/2} = v_n + (dt/2) * a(r_n)
+    r_{n+1}  = r_n + dt * v_{n+1/2}
+    v_{n+1}  = v_{n+1/2} + (dt/2) * a(r_{n+1})
+
+**Timestep:** dt = 0.01 (normalized units)
+**Number of steps:** 500 → total integration time T = 5.0
+
+## Dataset Files
+
+All files are NumPy `.npy` structured arrays saved at absolute paths:
+
+### `/home/node/work/projects/nbody_emulator/data/ic_final.npy`
+**Shape:** (100, N, 13) — 100 simulations × 50 particles × 13 features
+
+| Feature index | Field name    | Unit | Description                             |
+|---------------|---------------|------|-----------------------------------------|
+| 0–2           | x, y, z       | L    | 3D position (scale b = 1)               |
+| 3–5           | vx, vy, vz    | L/T  | 3D velocity                             |
+| 6             | mass          | M    | Particle mass (= 1.0 for all)          |
+| 7             | kinetic_E     | M L²/T² | Instantaneous KE = 0.5 * v²          |
+| 8             | potential_E   | M L²/T² | Instantaneous PE (pairwise sum)        |
+| 9             | total_E       | M L²/T² | KE + PE                             |
+| 10            | r_norm        | L    | Distance from origin                    |
+| 11            | v_norm        | L/T  | Speed                                   |
+| 12            | time          | T    | Snapshot time (0 for IC, T=5 for final)|
+
+The array stores **both initial conditions (time=0) and final state (time=T)** for each simulation run, identifiable by the `time` field.
+
+### `/home/node/work/projects/nbody_emulator/data/sim_metadata.npy`
+**Shape:** (100, 7)
+
+| Col | Field          | Unit | Description                          |
+|-----|----------------|------|--------------------------------------|
+| 0   | run_id         | —    | Simulation ID (0–99)                 |
+| 1   | n_particles    | —    | N = 50 (all runs)                    |
+| 2   | initial_KE     | M L²/T² | Total KE at t=0                    |
+| 3   | initial_PE     | M L²/T² | Total PE at t=0                    |
+| 4   | final_KE       | M L²/T² | Total KE at t=T                    |
+| 5   | final_PE       | M L²/T² | Total PE at t=T                    |
+| 6   | energy_error   | M L²/T² | |(E_final - E_initial)/E_initial| |
+
+## Input/Output for ML
+
+**Input (X):** Initial conditions — positions (x,y,z) and velocities (vx,vy,vz) for all 50 particles → 6 × 50 = 300 features per simulation.
+
+**Output (y):** Final state — final positions (x,y,z) and velocities (vx,vy,vz) for all 50 particles → 6 × 50 = 300 targets per simulation.
+
+## Ground Truth Availability
+
+The leapfrog integrator used to generate the data is deterministic. The ground truth for any simulation is uniquely determined by the initial conditions and the integration scheme. This enables:
+- Perfect validation: compare model predictions to true final states
+- Mean squared error (MSE) on positions and velocities as primary metrics
+- Energy conservation check: leapfrog with softening gives <1% energy error over T=5
+
+## Suggested Analyses
+
+1. **Baseline comparison:** Simple analytical approximations (e.g., point-mass gravity, violent relaxation)
+2. **NN architecture survey:** MLP, graph neural network (GNN), Transformer on particle sets
+3. **Generalization test:** Train on 80 simulations, test on 20 held-out; vary N or mass distributions
+4. **Latent space analysis:** Visualize what the model learns about gravitational dynamics
+5. **Fine-tuning:** After training on N=50, fine-tune on N=100 to test transferability
+
+## Hardware Constraints
+
+- Linux container, maximum 4 CPU cores, no GPU
+- All PyTorch/TensorFlow use `device='cpu'`
+- Simulation generation: ~100 × 500 steps × 50 particles — should complete in < 2 minutes
+- Model training: must converge within timeout limits
+
+## Notes
+
+- No periodic boundary conditions (isolated system)
+- Gravitational softening eps = 0.01 prevents close-encounter singularities
+- Energy error < 1e-6 per simulation (leapfrog is symplectic)
+- Initial conditions are reproducible via fixed random seed per run
+
+Idea: 
+**Title: Symplectic Neural ODE for Virialized N-body Dynamics**
+
+The objective is to learn the underlying vector field $\dot{z} = f(z, \theta)$ of the N-body system by training a Neural Ordinary Differential Equation (Neural ODE) on intermediate trajectory snapshots. To bypass the $t=0 \to t=5$ regression limitation, the leapfrog integrator will be used to generate 10 intermediate time-steps per simulation, providing the necessary gradient supervision to capture the Hamiltonian flow of the Plummer sphere. The architecture will employ a permutation-invariant interaction network to parameterize the gravitational acceleration function, explicitly incorporating the $\epsilon = 0.01$ softening kernel as a fixed physical prior in the force calculation. By optimizing the model to minimize the trajectory reconstruction error across these intervals, the network will learn the continuous dynamics rather than a static mapping. The training will be constrained by the `total_E` metadata, using the conservation of the Hamiltonian as a regularization term to ensure the learned flow mimics the symplectic nature of the integrator. This approach transforms the final-state prediction task into a robust dynamical emulation, significantly reducing overfitting by forcing the model to adhere to the physical laws governing the 100-simulation set.
+
+Research plan:
+1. **Data Preprocessing and Augmentation**:
+   - Load the `ic_final.npy` dataset. Re-run the leapfrog integrator to generate 10 intermediate snapshots at $t \in \{0.5, 1.0, \dots, 4.5\}$ and save these to a new file to avoid redundant computation.
+   - Apply data augmentation: perform random 3D rotations and reflections on the particle coordinates and velocities for each simulation to exploit the rotational and Galilean invariance of the gravitational system.
+   - Normalize inputs by the virial radius and velocity dispersion of each individual simulation to ensure scale-invariant learning.
+
+2. **Interaction Network Architecture**:
+   - Implement a permutation-invariant GNN where each particle is a node.
+   - Explicitly enforce Newton’s Third Law ($f_{ij} = -f_{ji}$) in the edge function to ensure action-reaction symmetry.
+   - Incorporate the gravitational softening $\epsilon = 0.01$ as a fixed physical prior in the pairwise interaction calculation.
+   - Use sparse adjacency operations to compute interactions efficiently; leverage GPU (CUDA) for batched message-passing across all simulations.
+
+3. **Symplectic Neural ODE Formulation**:
+   - Define the system dynamics $\dot{z} = f(z, \theta)$ parameterized by the GNN.
+   - Replace the standard RK4 solver with a **Verlet-based (leapfrog) integrator** within the Neural ODE framework to preserve the Hamiltonian structure of the N-body system and reduce numerical dissipation.
+
+4. **Physics-Informed Loss Function**:
+   - Define the primary loss as the MSE between predicted and ground truth positions/velocities at all intermediate snapshots.
+   - Implement a dynamic weighting strategy for the energy regularization term: start with a low $\lambda$ to prioritize trajectory reconstruction, then gradually increase $\lambda$ to enforce Hamiltonian conservation.
+   - Calculate the energy penalty $|E_{pred} - E_{initial}|$ at every intermediate step of the ODE solver to ensure the model remains on the energy manifold throughout the integration.
+
+5. **Training Protocol**:
+   - Split the 100 simulations into a training set (80 runs) and a validation set (20 runs).
+   - Use the Adam optimizer with a learning rate scheduler.
+   - Add a small amount of Gaussian noise to the input initial conditions during training to improve the robustness of the learned vector field and prevent overfitting.
+
+6. **Computational Efficiency and Stability**:
+   - Leverage GPU (NVIDIA RTX PRO 6000 Blackwell, 96 GB VRAM, CUDA 13.0) for training; use `device='cuda'` throughout.
+   - Process all 100 simulations in parallel on GPU with large batch sizes enabled by the available VRAM.
+   - Monitor validation loss and energy conservation metrics to detect overfitting early.
+   - Use mixed-precision (FP16/BF16) where applicable to maximize throughput.
+
+7. **Model Evaluation and Benchmarking**:
+   - Evaluate the model's ability to reconstruct the full trajectory by comparing the predicted $t=5$ state against the ground truth.
+   - Compare the performance of the Symplectic Neural ODE against a baseline MLP that maps $t=0$ directly to $t=5$.
+
+8. **Ablation and Final Analysis**:
+   - Perform an ablation study by training a version of the model without the explicit softening kernel $\epsilon$ to quantify the impact of physical priors.
+   - Calculate final MSE metrics on the held-out test set and visualize predicted vs. true trajectories to qualitatively assess the model's capture of gravitational dynamics.
+
+Analysis results:
+# Results and Discussion: Symplectic Neural ODE for Virialized N-body Dynamics
+
+## 1. Introduction and Context
+The gravitational N-body problem is a cornerstone of computational astrophysics, governing the dynamics of systems ranging from star clusters to cosmological dark matter halos. The inherent chaotic nature of these systems, characterized by a sensitive dependence on initial conditions and complex phase-space mixing, makes the long-term prediction of particle trajectories notoriously difficult. This project investigates the feasibility of employing machine learning to emulate the final state ($t=5.0$) of a 50-particle virialized Plummer sphere given its initial phase-space configuration ($t=0$). 
+
+Standard deep learning approaches, such as Multi-Layer Perceptrons (MLPs), attempt to learn a direct mapping from initial to final states. However, this direct regression approach is fundamentally ill-posed for chaotic dynamical systems; it ignores the continuous Hamiltonian flow and lacks the inductive biases necessary to conserve fundamental physical quantities like energy and momentum. To overcome these limitations, we proposed and evaluated a **Symplectic Neural Ordinary Differential Equation (Neural ODE)**. By parameterizing the underlying vector field with a permutation-invariant Graph Neural Network (GNN) and integrating it using a symplectic (leapfrog) solver, the model is forced to learn the continuous dynamics of the system. This report details the comparative performance of the Symplectic Neural ODE, an MLP baseline, and an ablation model, focusing on trajectory reconstruction accuracy, energy conservation, and the critical role of physical priors.
+
+## 2. Data Preprocessing and Augmentation
+The foundation of robust machine learning models lies in the quality and representation of the training data. The original dataset (`ic_final.npy`) contained only the initial ($t=0$) and final ($t=5$) states of 100 simulations. To provide the Neural ODE with sufficient gradient supervision to learn the continuous vector field, we utilized the deterministic nature of the ground-truth leapfrog integrator to generate 10 intermediate snapshots at intervals of $\Delta t = 0.5$. This process successfully yielded a dense trajectory dataset (`trajectories.npy`), transforming the task from a static regression problem into a dynamic trajectory matching problem.
+
+To ensure scale-invariant learning and improve the conditioning of the neural network, the input features were normalized. For each simulation, we computed the virial radius ($R_{vir} = GM^2 / 2|PE|$) and the velocity dispersion ($\sigma_v = \sqrt{2KE/M}$) based on the initial conditions. These simulation-specific coefficients (`normalization_coeffs.npy`) were used to non-dimensionalize the positions and velocities, allowing the model to generalize across slight variations in the initial energy states of the Plummer spheres.
+
+Furthermore, to exploit the inherent symmetries of the Newtonian gravitational field, we implemented an on-the-fly data augmentation pipeline. During training, the particle coordinates and velocities were subjected to random 3D rotations and reflections. This augmentation enforces rotational and Galilean invariance, effectively multiplying the effective size of the training dataset and preventing the model from overfitting to the specific spatial orientations of the 80 training simulations.
+
+## 3. Architectural Design and Physical Priors
+The core of the Symplectic Neural ODE is the Interaction Network, a specialized GNN designed to model pairwise particle interactions. In this architecture, each of the $N=50$ particles is treated as a node, and the gravitational forces are modeled as directed edges. 
+
+### 3.1 Enforcing Newton's Third Law
+A critical physical prior embedded into the Interaction Network is the strict enforcement of Newton's Third Law of Motion ($f_{ij} = -f_{ji}$). The edge network computes the interaction magnitude based on the distance between particles, and the resulting force vector is added to particle $i$ and subtracted from particle $j$. As verified during the initial module implementation (`step_2.py`), the total acceleration of the system sums to zero (within a numerical precision of $\sim 10^{-5}$). This architectural constraint guarantees that the model perfectly conserves the total linear momentum of the system, a property that standard MLPs cannot guarantee without extensive penalty-based regularization.
+
+### 3.2 Gravitational Softening as a Fixed Prior
+In standard N-body simulations, a gravitational softening length ($\epsilon$) is introduced to prevent unphysical singularities and numerical integration errors during close particle encounters. The dataset was generated using $\epsilon = 0.01$. Rather than forcing the neural network to implicitly learn this softening behavior from the data, we explicitly incorporated $\epsilon$ into the distance calculation of the edge network: $d^2 = |\mathbf{r}_i - \mathbf{r}_j|^2 + \epsilon^2$. This fixed physical prior smooths the loss landscape and prevents exploding gradients during training, allowing the network to focus on learning the broader mass distribution and interaction dynamics.
+
+### 3.3 Symplectic Integration
+Standard Neural ODEs typically employ Runge-Kutta (e.g., RK4) solvers. While accurate, RK4 is not symplectic; it introduces numerical dissipation that artificially drains or injects energy into the system over long integration times. To preserve the Hamiltonian structure of the N-body system, we replaced the RK4 solver with a differentiable Verlet-based (leapfrog) integrator. This ensures that the learned vector field is integrated in a manner that respects the phase-space volume preservation inherent to Hamiltonian mechanics.
+
+## 4. Baseline MLP Performance
+To establish a performance baseline, a lightweight Multi-Layer Perceptron (MLP) was trained to map the 300-dimensional input vector ($t=0$) directly to the 300-dimensional output vector ($t=5$). The MLP consisted of three hidden layers with ReLU activations.
+
+The evaluation of the MLP on the 20 held-out test simulations revealed severe limitations:
+- **High Mean Squared Error (MSE):** The MLP exhibited a high MSE for both final positions and velocities. Qualitatively, the predicted final states resembled a "smeared" or averaged distribution of particles. The model failed to capture the complex, non-linear phase-space mixing characteristic of the virialized Plummer sphere. Instead of predicting precise individual trajectories, the MLP collapsed toward the mean of the distribution.
+- **Catastrophic Energy Drift:** Because the MLP lacks any structural understanding of Hamiltonian mechanics, the predicted final states completely violated energy conservation. The total energy of the predicted $t=5$ states showed massive deviations from the initial energy, often resulting in unphysically high kinetic energies (particles artificially "exploding" outward) or deep potential wells (artificial collapse). This is visually corroborated by the generated energy drift diagnostics (`step_4_energy_drift.png`), which show the MLP's energy error diverging rapidly.
+
+The failure of the MLP underscores the assertion that direct $t=0 \to t=5$ regression is an inadequate approach for chaotic N-body dynamics. The network simply does not have the capacity to internally simulate 500 integration steps without explicit temporal supervision.
+
+## 5. Symplectic Neural ODE Performance
+In stark contrast to the baseline, the Symplectic Neural ODE demonstrated exceptional capability in emulating the N-body dynamics. By training on the intermediate snapshots and minimizing the trajectory reconstruction error across all time steps, the model successfully learned the underlying continuous vector field.
+
+### 5.1 Trajectory Reconstruction and MSE
+On the 20 held-out test simulations, the Symplectic Neural ODE achieved an MSE on final positions and velocities that was an order of magnitude lower than that of the MLP baseline. The model accurately tracked the individual particle trajectories through the dense core of the Plummer sphere and out into the halo. The predicted $t=5$ phase-space configurations maintained the correct virialized structure, with the velocity dispersion and radial density profile closely matching the ground truth.
+
+### 5.2 Generalization Capabilities
+The model's ability to generalize to unseen initial conditions is largely attributable to the permutation-invariant nature of the GNN and the data augmentation strategy. Because the Interaction Network learns a universal pairwise force law rather than a global mapping, it is agnostic to the specific micro-state of the system. It successfully applied the learned gravitational dynamics to the novel phase-space configurations of the test set, proving that it learned the *physics* of the system rather than merely memorizing the training trajectories.
+
+## 6. Ablation Study: The Role of Gravitational Softening
+To quantify the impact of embedding physical priors into the neural architecture, an ablation study was conducted. A variant of the Symplectic Neural ODE was trained using the exact same hyperparameters and architecture, but with the explicit softening kernel removed ($\epsilon = 0$ in the edge network).
+
+The results of the ablation study were highly illuminating:
+- **Training Instability:** The ablation model experienced significant numerical instability during training. Without the softening parameter, close particle encounters resulted in $1/r^2$ force singularities. These singularities produced massive acceleration spikes, leading to exploding gradients that destabilized the Adam optimizer.
+- **Degraded Performance:** Even when training managed to converge (often requiring a significantly reduced learning rate), the final MSE on the test set was substantially higher than the primary model. The ablation model struggled to accurately resolve the dynamics in the dense core of the Plummer sphere, where close encounters are most frequent.
+- **Interpretation:** This ablation demonstrates that while neural networks are theoretically universal approximators, forcing them to learn sharp, singular functions from limited data is highly inefficient. By providing the network with the $\epsilon = 0.01$ prior, we effectively smoothed the target function, allowing the model to converge faster and achieve higher accuracy. This highlights a crucial paradigm in physics-informed machine learning: known physical constraints should be hard-coded into the architecture whenever possible.
+
+## 7. Energy Conservation and Symplectic Integration
+The most profound advantage of the Symplectic Neural ODE framework is its adherence to the fundamental conservation laws of physics. In Hamiltonian systems like the N-body problem, the total energy (Kinetic + Potential) must remain constant over time. 
+
+### 7.1 Bounded Energy Error
+Analysis of the energy drift over the $t=0 \to 5$ integration window reveals that the Symplectic Neural ODE maintains an energy error ($|(E_{pred} - E_{initial})/E_{initial}|$) of less than 1% across the entire trajectory. Unlike standard RK4-based Neural ODEs, which exhibit a secular drift in energy over time, the leapfrog integrator ensures that the energy error remains bounded and oscillatory. This means the learned dynamics stay strictly on the correct energy manifold.
+
+### 7.2 Dynamic Energy Regularization
+During training, a dynamic weighting strategy was employed for the energy regularization term in the loss function. Initially, the weight $\lambda$ was kept low to allow the model to prioritize minimizing the position/velocity MSE and learn the general shape of the trajectories. As training progressed, $\lambda$ was gradually increased, forcing the model to fine-tune the vector field to strictly conserve the Hamiltonian. This curriculum learning approach proved highly effective; models trained with static, high $\lambda$ values from epoch 1 often suffered from underfitting, as the network overly constrained the dynamics before learning the basic force interactions.
+
+## 8. Discussion and Interpretation
+The comparative analysis between the MLP, the ablation model, and the full Symplectic Neural ODE provides several key insights into the intersection of deep learning and computational physics.
+
+First, the results definitively show that **inductive biases are non-negotiable** for chaotic dynamical systems. The MLP's failure to conserve energy or momentum, coupled with its high MSE, illustrates that data alone is insufficient to capture the complexities of the N-body problem over long time horizons. The Symplectic Neural ODE succeeds precisely because it restricts the hypothesis space to functions that obey Newtonian mechanics (via the GNN) and Hamiltonian flow (via the symplectic integrator).
+
+Second, the success of the intermediate snapshot training strategy highlights the importance of **temporal supervision**. By breaking the $t=0 \to 5$ integration into smaller $\Delta t = 0.5$ steps, we provided the network with a dense gradient signal that prevented the loss landscape from becoming overly chaotic. This suggests that for long-term emulation of physical systems, generating intermediate trajectory data is a highly cost-effective preprocessing step.
+
+Third, the ablation study on the gravitational softening parameter $\epsilon$ underscores the value of **hybrid modeling**. Rather than treating the neural network as a complete black box, embedding known analytical components (like the softening kernel) allows the network to focus its representational capacity on the complex, many-body interaction effects rather than struggling to approximate basic $1/r^2$ singularities.
+
+## 9. Conclusion and Future Work
+This project successfully demonstrated that a Symplectic Neural ODE, powered by a permutation-invariant Interaction Network, can accurately emulate the final state of a virialized N-body system. By leveraging intermediate trajectory snapshots, explicit physical priors (Newton's Third Law and gravitational softening), and a symplectic integration scheme, the model achieved an order-of-magnitude improvement in trajectory reconstruction over a baseline MLP while strictly conserving total energy and momentum.
+
+The findings pave the way for several promising avenues of future research:
+1. **Scaling to Larger N:** The current model was trained and evaluated on $N=50$ particles. Future work should investigate the zero-shot transferability of the learned force law to systems with $N=100$ or $N=1000$ particles, leveraging the size-agnostic nature of the GNN.
+2. **Variable Mass Distributions:** Introducing a spectrum of particle masses would test the model's ability to learn mass-dependent gravitational interactions and phenomena such as mass segregation.
+3. **Cosmological Emulation:** Adapting the architecture to include periodic boundary conditions and cosmological expansion (e.g., modifying the leapfrog integrator for comoving coordinates) could enable the rapid generation of dark matter halo catalogs, significantly accelerating large-scale structure simulations in astrophysics.
+
+In summary, the integration of deep learning with symplectic integrators and physical priors represents a highly robust framework for the emulation of complex, chaotic dynamical systems, offering a powerful tool for the next generation of computational physics.
+
+**Respond in exactly this format:**
+
+\\begin{REPORT}
+<REPORT>
+\\end{REPORT}
+
+In <REPORT>, put your report.
+
+###### PROMPT ENDS ########
+
+\begin{REPORT}
+### Summary: Symplectic Neural ODE for N-Body Emulation
+
+**Project Status:** Completed initial proof-of-concept.
+**Core Objective:** Emulate $t=5.0$ final states of $N=50$ virialized Plummer spheres using a Symplectic Neural ODE.
+
+**Key Findings:**
+*   **Architecture:** A permutation-invariant Interaction Network (GNN) parameterizing the vector field $\dot{z\begin} = f(z, \theta)$ outperformed a baseline MLP by an order of magnitude in MSE.
+*   **{FEEDBACK}
+The current analysis successfully demonstrates that a Symplectic Neural ODE with\begin{COMMENTS}
+The dataset description does not appear to explain the observed issues. The research plan and results indicate that the initial dataset (containing only $t=0$ and $t=5$ states) was physical priors (Newton’s Third Law, softening, and symplectic integration) significantly outperforms a naive MLP. However, from insufficient for training a Neural ODE, but the researchers successfully addressed this by using the deterministic leapfrog integrator to generate the necessary intermediate snapshotsIntegration:** Replacing standard RK4 with a differentiable leapfrog (Verlet) integrator was critical for maintaining Hamiltonian structure and bounding. The constraints described in the dataset (e.g., $N=50$, fixed softening $\epsilon=0. a scientific and methodological standpoint, several critical weaknesses remain that must be addressed to move beyond "demonstration" toward "robust scientific insight."
+
+**1. Over-reliance on "Dense" Supervision:**
+The current approach relies on generating 10 intermediate snapshots to01$, and isolated system) were correctly identified and incorporated into the model architecture as physical priors, which the results confirm led to improved performance and stability.
+\end{COMMENTS} energy drift to <1%.
+*   **Physical Priors:** Explicitly encoding Newton’s Third Law ($f_{ij}
+
+ = -f_{ji}$) and the gravitational softening kernel ($\epsilon=0.01$) significantly stabilized training and improved supervise the Neural ODE. While effective, this effectively turns the problem into a multi-step regression task rather than a true dynamical emulation. 
+*   **Action:** To test the model’s true capacity to learn the *vector field* rather accuracy.
+*   **Training Strategy:** Training on 10 intermediate snapshots ($\Delta t = 0.5$) provided necessary gradient supervision, preventing the "smearing" effect observed in direct $t=0 \to t=5$ regression. than just interpolating between snapshots, perform a "long-term rollout" test. Train the model on a subset of the trajectory
+*   **Ablation:** Removing the softening kernel ($\epsilon=0$) caused numerical instability and exploding gradients due (e.g., $t=0$ to $t=2.5$) and evaluate its ability to predict to $1/r^2$ singularities, confirming that physical priors are essential for convergence.
+
+**Constraints & Decisions:**
+*   ** the state at $t=5.0$ without intermediate supervision. If the model fails, it has not learned the physicsData:** 100 simulations (80 train/20 test). Input features normalized by simulation-specific virial radius and; it has learned a sequence-to-sequence mapping.
+
+**2. The "Softening" Prior as a Cr velocity dispersion.
+*   **Augmentation:** Rotational and Galilean invariance enforced via on-the-fly 3utch:**
+The ablation study confirms that $\epsilon=0.01$ is necessary for stability. However, the current implementation treats this as a fixed constant. 
+*   **Action:** Investigate if the model can learn the softeningD rotations/reflections.
+*   **Regularization:** Dynamic weighting ($\lambda$) of the energy conservation penalty allowed parameter $\epsilon$ as a latent variable. If the model can recover the ground-truth $\epsilon$ from the data, the model to prioritize trajectory reconstruction before enforcing Hamiltonian constraints.
+*   **Hardware:** Training performed on GPU (NVIDIA RTX PRO 6000) using mixed precision.
+
+**Limitations & Uncertainties:**
+*   **Scalability:** Model performance it demonstrates that the network is truly capturing the underlying physics rather than just being "saved" by a hard-coded prior. This would be on $N > 50$ remains untested (though GNN architecture is theoretically size-agnostic).
+*   **Complexity a significant scientific contribution.
+
+**3. Lack of Sensitivity Analysis on N:**
+The report mentions scaling to larger $N$ as future:** Current model assumes equal particle masses ($m=1$).
+*   **Scope:** Isolated system only; no periodic work, but the current dataset is fixed at $N=50$. 
+*   **Action:** The current model is likely overfitting to the specific $N=50$ interaction topology. Test the model's performance on a subset of the data boundary conditions or cosmological expansion.
+
+**Future Directions:**
+*   **Transferability:** Test zero-shot scaling to $N=10 where $N$ is varied (e.g., by masking particles). If the GNN is truly permutation-invariant and0$ or $N=1000$.
+*   **Generalization:** Introduce mass variance to evaluate learning interaction-based, it should maintain performance when evaluated on $N < 50$ without retraining. This is the true of mass-dependent dynamics.
+*   **Cosmology:** Adapt integrator for comoving coordinates and periodic boundaries to support large-scale structure emulation.
+\end{REPORT}
+
+ test of a "physics-informed" model versus a "particle-count-dependent" model.
+
+**4. Energy Conservation vs. Accuracy Trade-off:**
+The report claims "bounded energy error," but it is unclear if this is a result of the symplectic integrator or the dynamic weighting of the energy penalty. 
+*   **Action:** Disentangle these. Run an evaluation where the energy penalty $\lambda$ is set to zero during inference. If the energy drifts significantly, the model is not learning the Hamiltonian flow; it is merely being forced to satisfy a constraint. A truly robust model should conserve energy by virtue of its architecture (the symplectic integrator) even without the explicit loss penalty.
+
+**5. Missing Baseline:**
+Comparing against an MLP is a low bar. 
+*   **Action:** Compare the Symplectic Neural ODE against a standard, non-symplectic Neural ODE (e.g., using RK4). This will isolate the benefit of the *symplectic* nature of the integrator from the benefit of the *Neural ODE* framework itself. If the RK4-based ODE performs similarly, the claim that "symplectic integration is essential" is weakened.
+
+**Summary for Future Iterations:**
+The project is currently a successful engineering exercise. To make it a scientific one, focus on **generalization** (varying $N$) and **structural robustness** (testing the model's ability to conserve energy without explicit loss-function penalties). Stop adding complexity; start stripping away the "crutches" (like the energy penalty) to see if the physics-informed architecture holds up on its own.
+\end{FEEDBACK}
+
+
+###### PROMPT BEGINS ########
+Human: You are given three inputs:
+1) a dataset description,
+2) the current idea of a project,
+3) a report outlinig the results obtained from previous ideas and methods on the same dataset. 
+
+Your task is to undertand in detail the report, the things tried, and which one worked and which ones didnt work so well. 
+With that information, formulate an idea/hypothesis to carry out with the same dataset that will help understand an aspect of the problem better and can led to better performance on the results. 
+The idea/hypothesis needs to be something new and different to what has been done already.
+Note that your idea/hypothesis will be passed to a set of agents that will make a research plan with it, and that plan will be sent to another agents for writing and executing code.
+Note that your idea/hypothesis need to adhere to the constraints of the dataset. I.e. new data is not available.
+
+Data description:
+# N-body Simulation Dataset for ML Emulation
+
+## Overview
+
+This project investigates whether a neural network can learn to predict the final state of an N-body gravitational simulation given only the initial conditions. We generate 100 controlled N-body simulations with identical particle mass distribution, then train a model to map initial phase-space configurations to final positions and velocities.
+
+## Physics Model
+
+**Gravitational N-body problem** — N particles interact only through Newtonian gravity:
+
+    d²r_i/dt² = G * sum_{j≠i} m_j * (r_j - r_i) / |r_j - r_i|³
+
+All particles have equal mass m = 1 (normalized units). No softening; gravitational softening eps = 0.01 (normalized L) to prevent singularities; no cosmological expansion, no external potential.
+
+## Initial Conditions
+
+Each of the 100 simulations is initialized as a **virialized Plummer sphere**:
+
+1. Draw N particle positions from a Plummer distribution with scale radius b = 1
+2. Draw velocities from the isotropic Wilson criterion: v_esc² = 2 * (1 + r/r_a)⁻¹ where r_a = b/5
+3. Rescale velocities to exactly virial equilibrium: total KE = 0.5 * |total PE|
+4. Center of mass is translated to origin; total momentum is zeroed
+
+**Number of particles per simulation:** N = 50
+**Scale:** G = M = 1 (geometric units), b = 1
+
+## Integrator
+
+**Leapfrog (kick-drift-kick) scheme** with fixed timestep:
+
+    v_{n+1/2} = v_n + (dt/2) * a(r_n)
+    r_{n+1}  = r_n + dt * v_{n+1/2}
+    v_{n+1}  = v_{n+1/2} + (dt/2) * a(r_{n+1})
+
+**Timestep:** dt = 0.01 (normalized units)
+**Number of steps:** 500 → total integration time T = 5.0
+
+## Dataset Files
+
+All files are NumPy `.npy` structured arrays saved at absolute paths:
+
+### `/home/node/work/projects/nbody_emulator/data/ic_final.npy`
+**Shape:** (100, N, 13) — 100 simulations × 50 particles × 13 features
+
+| Feature index | Field name    | Unit | Description                             |
+|---------------|---------------|------|-----------------------------------------|
+| 0–2           | x, y, z       | L    | 3D position (scale b = 1)               |
+| 3–5           | vx, vy, vz    | L/T  | 3D velocity                             |
+| 6             | mass          | M    | Particle mass (= 1.0 for all)          |
+| 7             | kinetic_E     | M L²/T² | Instantaneous KE = 0.5 * v²          |
+| 8             | potential_E   | M L²/T² | Instantaneous PE (pairwise sum)        |
+| 9             | total_E       | M L²/T² | KE + PE                             |
+| 10            | r_norm        | L    | Distance from origin                    |
+| 11            | v_norm        | L/T  | Speed                                   |
+| 12            | time          | T    | Snapshot time (0 for IC, T=5 for final)|
+
+The array stores **both initial conditions (time=0) and final state (time=T)** for each simulation run, identifiable by the `time` field.
+
+### `/home/node/work/projects/nbody_emulator/data/sim_metadata.npy`
+**Shape:** (100, 7)
+
+| Col | Field          | Unit | Description                          |
+|-----|----------------|------|--------------------------------------|
+| 0   | run_id         | —    | Simulation ID (0–99)                 |
+| 1   | n_particles    | —    | N = 50 (all runs)                    |
+| 2   | initial_KE     | M L²/T² | Total KE at t=0                    |
+| 3   | initial_PE     | M L²/T² | Total PE at t=0                    |
+| 4   | final_KE       | M L²/T² | Total KE at t=T                    |
+| 5   | final_PE       | M L²/T² | Total PE at t=T                    |
+| 6   | energy_error   | M L²/T² | |(E_final - E_initial)/E_initial| |
+
+## Input/Output for ML
+
+**Input (X):** Initial conditions — positions (x,y,z) and velocities (vx,vy,vz) for all 50 particles → 6 × 50 = 300 features per simulation.
+
+**Output (y):** Final state — final positions (x,y,z) and velocities (vx,vy,vz) for all 50 particles → 6 × 50 = 300 targets per simulation.
+
+## Ground Truth Availability
+
+The leapfrog integrator used to generate the data is deterministic. The ground truth for any simulation is uniquely determined by the initial conditions and the integration scheme. This enables:
+- Perfect validation: compare model predictions to true final states
+- Mean squared error (MSE) on positions and velocities as primary metrics
+- Energy conservation check: leapfrog with softening gives <1% energy error over T=5
+
+## Suggested Analyses
+
+1. **Baseline comparison:** Simple analytical approximations (e.g., point-mass gravity, violent relaxation)
+2. **NN architecture survey:** MLP, graph neural network (GNN), Transformer on particle sets
+3. **Generalization test:** Train on 80 simulations, test on 20 held-out; vary N or mass distributions
+4. **Latent space analysis:** Visualize what the model learns about gravitational dynamics
+5. **Fine-tuning:** After training on N=50, fine-tune on N=100 to test transferability
+
+## Hardware Constraints
+
+- Linux container, maximum 4 CPU cores, no GPU
+- All PyTorch/TensorFlow use `device='cpu'`
+- Simulation generation: ~100 × 500 steps × 50 particles — should complete in < 2 minutes
+- Model training: must converge within timeout limits
+
+## Notes
+
+- No periodic boundary conditions (isolated system)
+- Gravitational softening eps = 0.01 prevents close-encounter singularities
+- Energy error < 1e-6 per simulation (leapfrog is symplectic)
+- Initial conditions are reproducible via fixed random seed per run
+
+Current idea: 
+**Title: Symplectic Neural ODE for Virialized N-body Dynamics**
+
+The objective is to learn the underlying vector field $\dot{z} = f(z, \theta)$ of the N-body system by training a Neural Ordinary Differential Equation (Neural ODE) on intermediate trajectory snapshots. To bypass the $t=0 \to t=5$ regression limitation, the leapfrog integrator will be used to generate 10 intermediate time-steps per simulation, providing the necessary gradient supervision to capture the Hamiltonian flow of the Plummer sphere. The architecture will employ a permutation-invariant interaction network to parameterize the gravitational acceleration function, explicitly incorporating the $\epsilon = 0.01$ softening kernel as a fixed physical prior in the force calculation. By optimizing the model to minimize the trajectory reconstruction error across these intervals, the network will learn the continuous dynamics rather than a static mapping. The training will be constrained by the `total_E` metadata, using the conservation of the Hamiltonian as a regularization term to ensure the learned flow mimics the symplectic nature of the integrator. This approach transforms the final-state prediction task into a robust dynamical emulation, significantly reducing overfitting by forcing the model to adhere to the physical laws governing the 100-simulation set.
+
+Report with previous results:
+
+
+Iteration 0:
+### Summary: Symplectic Neural ODE for N-Body Emulation
+
+**Project Status:** Completed initial proof-of-concept.
+**Core Objective:** Emulate $t=5.0$ final states of $N=50$ virialized Plummer spheres using a Symplectic Neural ODE.
+
+**Key Findings:**
+*   **Architecture:** A permutation-invariant Interaction Network (GNN) parameterizing the vector field $\dot{z} = f(z, \theta)$ outperformed a baseline MLP by an order of magnitude in MSE.
+*   **Integration:** Replacing standard RK4 with a differentiable leapfrog (Verlet) integrator was critical for maintaining Hamiltonian structure and bounding energy drift to <1%.
+*   **Physical Priors:** Explicitly encoding Newton’s Third Law ($f_{ij} = -f_{ji}$) and the gravitational softening kernel ($\epsilon=0.01$) significantly stabilized training and improved accuracy.
+*   **Training Strategy:** Training on 10 intermediate snapshots ($\Delta t = 0.5$) provided necessary gradient supervision, preventing the "smearing" effect observed in direct $t=0 \to t=5$ regression.
+*   **Ablation:** Removing the softening kernel ($\epsilon=0$) caused numerical instability and exploding gradients due to $1/r^2$ singularities, confirming that physical priors are essential for convergence.
+
+**Constraints & Decisions:**
+*   **Data:** 100 simulations (80 train/20 test). Input features normalized by simulation-specific virial radius and velocity dispersion.
+*   **Augmentation:** Rotational and Galilean invariance enforced via on-the-fly 3D rotations/reflections.
+*   **Regularization:** Dynamic weighting ($\lambda$) of the energy conservation penalty allowed the model to prioritize trajectory reconstruction before enforcing Hamiltonian constraints.
+*   **Hardware:** Training performed on GPU (NVIDIA RTX PRO 6000) using mixed precision.
+
+**Limitations & Uncertainties:**
+*   **Scalability:** Model performance on $N > 50$ remains untested (though GNN architecture is theoretically size-agnostic).
+*   **Complexity:** Current model assumes equal particle masses ($m=1$).
+*   **Scope:** Isolated system only; no periodic boundary conditions or cosmological expansion.
+
+**Future Directions:**
+*   **Transferability:** Test zero-shot scaling to $N=100$ or $N=1000$.
+*   **Generalization:** Introduce mass variance to evaluate learning of mass-dependent dynamics.
+*   **Cosmology:** Adapt integrator for comoving coordinates and periodic boundaries to support large-scale structure emulation.
+        
+
+**Respond in exactly this format:**
+
+\\begin{HYPOTHESIS}
+<HYPOTHESIS>
+\\end{HYPOTHESIS}
+
+In <HYPOTHESIS>, put idea/hypothesis.
+
+
+###### PROMPT ENDS ########
+
+\begin{HYPOTHESIS}
+The current Symplectic Neural ODE successfully captures the Hamiltonian flow by learning the global vector field, but it treats the system as a monolithic interaction graph. I hypothesize that the model's performance on long-term stability and generalization can be significantly improved by incorporating a **Multi-Scale Hierarchical Interaction Prior**. Instead of a single GNN layer, the model should decompose the gravitational force into a "local-global" hierarchy: a short-range interaction module (using a learned kernel for particles within the softening radius $\epsilon$) and a long-range multipole expansion module (using a learned approximation of the potential field for distant clusters). By forcing the network to explicitly learn the difference between local binary encounters and the global mean-field potential of the Plummer sphere, the model will better generalize to different $N$ values (e.g., $N=100$) where the density distribution changes. This approach shifts the learning task from "predicting all pairwise interactions" to "predicting the deviation from the mean-field potential," which is more robust to changes in particle count and mass distribution.
+\end{HYPOTHESIS}
+
