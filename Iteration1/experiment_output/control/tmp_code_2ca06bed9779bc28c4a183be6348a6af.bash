@@ -1,0 +1,1 @@
+ls -R /home/node/work/projects/nbody_emulator/codebase && cat /home/node/work/projects/nbody_emulator/codebase/step_1.py

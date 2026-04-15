@@ -1,0 +1,115 @@
+[
+  {
+    "content": "# N-body Simulation Dataset for ML Emulation\n\n## Overview\n\nThis project investigates whether a neural network can learn to predict the final state of an N-body gravitational simulation given only the initial conditions. We generate 100 controlled N-body simulations with identical particle mass distribution, then train a model to map initial phase-space configurations to final positions and velocities.\n\n## Physics Model\n\n**Gravitational N-body problem** \u2014 N particles interact only through Newtonian gravity:\n\n    d\u00b2r_i/dt\u00b2 = G * sum_{j\u2260i} m_j * (r_j - r_i) / |r_j - r_i|\u00b3\n\nAll particles have equal mass m = 1 (normalized units). No softening; gravitational softening eps = 0.01 (normalized L) to prevent singularities; no cosmological expansion, no external potential.\n\n## Initial Conditions\n\nEach of the 100 simulations is initialized as a **virialized Plummer sphere**:\n\n1. Draw N particle positions from a Plummer distribution with scale radius b = 1\n2. Draw velocities from the isotropic Wilson criterion: v_esc\u00b2 = 2 * (1 + r/r_a)\u207b\u00b9 where r_a = b/5\n3. Rescale velocities to exactly virial equilibrium: total KE = 0.5 * |total PE|\n4. Center of mass is translated to origin; total momentum is zeroed\n\n**Number of particles per simulation:** N = 50\n**Scale:** G = M = 1 (geometric units), b = 1\n\n## Integrator\n\n**Leapfrog (kick-drift-kick) scheme** with fixed timestep:\n\n    v_{n+1/2} = v_n + (dt/2) * a(r_n)\n    r_{n+1}  = r_n + dt * v_{n+1/2}\n    v_{n+1}  = v_{n+1/2} + (dt/2) * a(r_{n+1})\n\n**Timestep:** dt = 0.01 (normalized units)\n**Number of steps:** 500 \u2192 total integration time T = 5.0\n\n## Dataset Files\n\nAll files are NumPy `.npy` structured arrays saved at absolute paths:\n\n### `/home/node/work/projects/nbody_emulator/data/ic_final.npy`\n**Shape:** (100, N, 13) \u2014 100 simulations \u00d7 50 particles \u00d7 13 features\n\n| Feature index | Field name    | Unit | Description                             |\n|---------------|---------------|------|-----------------------------------------|\n| 0\u20132           | x, y, z       | L    | 3D position (scale b = 1)               |\n| 3\u20135           | vx, vy, vz    | L/T  | 3D velocity                             |\n| 6             | mass          | M    | Particle mass (= 1.0 for all)          |\n| 7             | kinetic_E     | M L\u00b2/T\u00b2 | Instantaneous KE = 0.5 * v\u00b2          |\n| 8             | potential_E   | M L\u00b2/T\u00b2 | Instantaneous PE (pairwise sum)        |\n| 9             | total_E       | M L\u00b2/T\u00b2 | KE + PE                             |\n| 10            | r_norm        | L    | Distance from origin                    |\n| 11            | v_norm        | L/T  | Speed                                   |\n| 12            | time          | T    | Snapshot time (0 for IC, T=5 for final)|\n\nThe array stores **both initial conditions (time=0) and final state (time=T)** for each simulation run, identifiable by the `time` field.\n\n### `/home/node/work/projects/nbody_emulator/data/sim_metadata.npy`\n**Shape:** (100, 7)\n\n| Col | Field          | Unit | Description                          |\n|-----|----------------|------|--------------------------------------|\n| 0   | run_id         | \u2014    | Simulation ID (0\u201399)                 |\n| 1   | n_particles    | \u2014    | N = 50 (all runs)                    |\n| 2   | initial_KE     | M L\u00b2/T\u00b2 | Total KE at t=0                    |\n| 3   | initial_PE     | M L\u00b2/T\u00b2 | Total PE at t=0                    |\n| 4   | final_KE       | M L\u00b2/T\u00b2 | Total KE at t=T                    |\n| 5   | final_PE       | M L\u00b2/T\u00b2 | Total PE at t=T                    |\n| 6   | energy_error   | M L\u00b2/T\u00b2 | |(E_final - E_initial)/E_initial| |\n\n## Input/Output for ML\n\n**Input (X):** Initial conditions \u2014 positions (x,y,z) and velocities (vx,vy,vz) for all 50 particles \u2192 6 \u00d7 50 = 300 features per simulation.\n\n**Output (y):** Final state \u2014 final positions (x,y,z) and velocities (vx,vy,vz) for all 50 particles \u2192 6 \u00d7 50 = 300 targets per simulation.\n\n## Ground Truth Availability\n\nThe leapfrog integrator used to generate the data is deterministic. The ground truth for any simulation is uniquely determined by the initial conditions and the integration scheme. This enables:\n- Perfect validation: compare model predictions to true final states\n- Mean squared error (MSE) on positions and velocities as primary metrics\n- Energy conservation check: leapfrog with softening gives <1% energy error over T=5\n\n## Suggested Analyses\n\n1. **Baseline comparison:** Simple analytical approximations (e.g., point-mass gravity, violent relaxation)\n2. **NN architecture survey:** MLP, graph neural network (GNN), Transformer on particle sets\n3. **Generalization test:** Train on 80 simulations, test on 20 held-out; vary N or mass distributions\n4. **Latent space analysis:** Visualize what the model learns about gravitational dynamics\n5. **Fine-tuning:** After training on N=50, fine-tune on N=100 to test transferability\n\n## Hardware Constraints\n\n- Linux container, maximum 4 CPU cores, no GPU\n- All PyTorch/TensorFlow use `device='cpu'`\n- Simulation generation: ~100 \u00d7 500 steps \u00d7 50 particles \u2014 should complete in < 2 minutes\n- Model training: must converge within timeout limits\n\n## Notes\n\n- No periodic boundary conditions (isolated system)\n- Gravitational softening eps = 0.01 prevents close-encounter singularities\n- Energy error < 1e-6 per simulation (leapfrog is symplectic)\n- Initial conditions are reproducible via fixed random seed per run",
+    "role": "assistant"
+  },
+  {
+    "content": "",
+    "name": "control_starter",
+    "tool_calls": [
+      {
+        "id": "1084",
+        "function": {
+          "arguments": "{}",
+          "name": "record_status_starter"
+        },
+        "type": "function",
+        "thought_signature": "EkUKQwG+Pvb7yyVOGaAsuQpP0yzrHWiQkWHBx0wlY/eUa2YnAZvbyFnADy+BbKmjMskzSwTLt5dwbDFBGjaMbelYh4lnsPg="
+      }
+    ],
+    "role": "assistant"
+  },
+  {
+    "content": "\n**Step number:** 2 out of 7.\n\n**Sub-task:** Interaction Network Architecture Implementation\n\n**Agent in charge of sub-task:** `engineer`\n\n**Instructions:**\n\n- Implement a self-contained, reusable GNN module in a dedicated file.\n- Define the edge function to compute gravitational forces with a learnable softening parameter $\\epsilon$ (initialized at 0.01).\n- Enforce Newton\u2019s Third Law in the edge function.\n- Print the value of $\\epsilon$ upon instantiation to confirm correct initialization.\n\n**Status:** in progress \u23f3\n",
+    "tool_responses": [
+      {
+        "tool_call_id": "1084",
+        "role": "tool",
+        "content": "\n**Step number:** 2 out of 7.\n\n**Sub-task:** Interaction Network Architecture Implementation\n\n**Agent in charge of sub-task:** `engineer`\n\n**Instructions:**\n\n- Implement a self-contained, reusable GNN module in a dedicated file.\n- Define the edge function to compute gravitational forces with a learnable softening parameter $\\epsilon$ (initialized at 0.01).\n- Enforce Newton\u2019s Third Law in the edge function.\n- Print the value of $\\epsilon$ upon instantiation to confirm correct initialization.\n\n**Status:** in progress \u23f3\n"
+      }
+    ],
+    "name": "_Group_Tool_Executor",
+    "role": "tool"
+  },
+  {
+    "content": "**Code Explanation:**\n\nThe code defines a self-contained, reusable Graph Neural Network (Interaction Network) module named `GNNInteractionNetwork` using PyTorch. This module is designed to parameterize the gravitational acceleration function for an N-body system. \n\nKey features of the implementation:\n1. **Physical Prior & Learnable Softening**: The network explicitly incorporates the Newtonian gravity formula. The softening parameter $\\epsilon$ is defined as a learnable `nn.Parameter` and initialized to exactly 0.01.\n2. **Edge Function**: The `edge_function` computes the force vectors between pairs of particles. It uses an MLP (`edge_mlp`) that takes the squared distance between particles as input and outputs a scalar correction factor. This factor is multiplied by the physical force magnitude. The MLP's final layer is initialized such that it outputs 1.0 initially, allowing the network to start with exact physics.\n3. **Newton's Third Law**: The network strictly enforces Newton's Third Law ($f_{ij} = -f_{ji}$). It achieves this by computing a symmetric scalar force magnitude for each pair (since the squared distance is symmetric) and multiplying it by the antisymmetric relative position vector ($r_j - r_i$).\n4. **Robustness**: To prevent potential `NaN` values if $\\epsilon$ approaches zero during training, a dummy value is added to the diagonal of the squared distance matrix before computing the physical force magnitude. The diagonal (self-interactions) is subsequently masked out.\n5. **Initialization Check**: Upon instantiation, the module prints the initialized value of $\\epsilon$ to confirm it is set correctly.\n\n**Python Code:**\n\n```python\nimport torch\nimport torch.nn as nn\n\nclass GNNInteractionNetwork(nn.Module):\n    \"\"\"\n    A permutation-invariant Graph Neural Network (Interaction Network) for N-body dynamics.\n    \n    This network parameterizes the gravitational acceleration function. It explicitly incorporates\n    the physical prior of Newtonian gravity with a softening kernel. The softening parameter \n    epsilon is learnable and initialized to 0.01.\n    \n    Newton's Third Law is strictly enforced by computing a symmetric scalar force magnitude \n    for each pair of particles and multiplying it by the antisymmetric relative position vector.\n    \"\"\"\n    def __init__(self, hidden_dim=64):\n        super().__init__()\n        # Learnable softening parameter initialized to 0.01\n        self.epsilon = nn.Parameter(torch.tensor(0.01, dtype=torch.float32))\n        \n        # Edge MLP to compute a correction factor to the physical force.\n        # It takes the squared distance as input.\n        self.edge_mlp = nn.Sequential(\n            nn.Linear(1, hidden_dim),\n            nn.ReLU(),\n            nn.Linear(hidden_dim, hidden_dim),\n            nn.ReLU(),\n            nn.Linear(hidden_dim, 1)\n        )\n        \n        # Initialize the final layer to output 1.0 so the network starts with exact physics\n        nn.init.zeros_(self.edge_mlp[-1].weight)\n        nn.init.constant_(self.edge_mlp[-1].bias, 1.0)\n        \n        print(\"GNNInteractionNetwork instantiated with learnable epsilon initialized to: \" + str(self.epsilon.item()))\n\n    def edge_function(self, dx, r2):\n        \"\"\"\n        Computes the gravitational force vectors between pairs of particles.\n        \n        Args:\n            dx (torch.Tensor): Relative position vectors of shape (batch_size, N, N, 3).\n            r2 (torch.Tensor): Squared distances of shape (batch_size, N, N).\n            \n        Returns:\n            torch.Tensor: Force vectors of shape (batch_size, N, N, 3).\n        \"\"\"\n        # Compute the physical force magnitude with the learnable softening parameter\n        phys_force_mag = 1.0 / (r2 + self.epsilon**2)**1.5  # (batch_size, N, N)\n        \n        # Prepare inputs for the edge MLP\n        edge_inputs = r2.unsqueeze(-1)  # (batch_size, N, N, 1)\n        \n        # Compute the scalar correction factor using the edge MLP\n        m_ij = self.edge_mlp(edge_inputs).squeeze(-1)  # (batch_size, N, N)\n        \n        # Total scalar force magnitude\n        force_mag = m_ij * phys_force_mag  # (batch_size, N, N)\n        \n        # Compute force vectors: f_ij = force_mag * dx\n        force_vectors = force_mag.unsqueeze(-1) * dx  # (batch_size, N, N, 3)\n        \n        return force_vectors\n\n    def forward(self, pos):\n        \"\"\"\n        Forward pass to compute accelerations for each particle.\n        \n        Args:\n            pos (torch.Tensor): Particle positions of shape (batch_size, N, 3).\n            \n        Returns:\n            torch.Tensor: Computed accelerations of shape (batch_size, N, 3).\n        \"\"\"\n        batch_size, N, _ = pos.shape\n        \n        # Compute pairwise relative positions: dx[b, i, j, :] = pos[b, j, :] - pos[b, i, :]\n        dx = pos.unsqueeze(1) - pos.unsqueeze(2)  # (batch_size, N, N, 3)\n        \n        # Compute squared distances: r2[b, i, j] = ||pos[b, j] - pos[b, i]||^2\n        r2 = torch.sum(dx**2, dim=-1)  # (batch_size, N, N)\n        \n        # Create mask for self-interactions (diagonal elements where i == j)\n        mask = ~torch.eye(N, dtype=torch.bool, device=pos.device).unsqueeze(0)  # (1, N, N)\n        \n        # Add a dummy value to the diagonal of r2 to prevent division by zero\n        # in case epsilon becomes very small. The diagonal will be masked out later.\n        r2_safe = r2 + (~mask).float()\n        \n        # Get force vectors from the edge function\n        force_vectors = self.edge_function(dx, r2_safe)\n        \n        # Mask out self-interactions\n        force_vectors = force_vectors * mask.unsqueeze(-1)\n        \n        # Aggregate forces to compute accelerations: a_i = sum_j f_ij\n        accelerations = torch.sum(force_vectors, dim=2)  # (batch_size, N, 3)\n        \n        return accelerations\n\nif __name__ == '__main__':\n    # Instantiate the network to trigger the print statement and verify initialization\n    model = GNNInteractionNetwork(hidden_dim=64)\n    \n    # Dummy input to test the forward pass\n    batch_size = 2\n    N_particles = 5\n    dummy_pos = torch.randn(batch_size, N_particles, 3)\n    \n    # Compute accelerations\n    acc = model(dummy_pos)\n    \n    print(\"Input positions shape: \" + str(dummy_pos.shape))\n    print(\"Output accelerations shape: \" + str(acc.shape))\n    \n    # Verify Newton's Third Law (total force should be zero)\n    total_force = torch.sum(acc, dim=1)\n    max_force_deviation = torch.max(torch.abs(total_force)).item()\n    print(\"Maximum deviation from zero total force (Newton's Third Law check): \" + str(max_force_deviation))\n```",
+    "name": "engineer",
+    "role": "user"
+  },
+  {
+    "content": "**Code Explanation:**\n\nThe code defines a self-contained, reusable Graph Neural Network (Interaction Network) module named `GNNInteractionNetwork` using PyTorch. This module is designed to parameterize the gravitational acceleration function for an N-body system. Key features of the implementation: 1. Physical Prior & Learnable Softening: The network explicitly incorporates the Newtonian gravity formula. The softening parameter epsilon is defined as a learnable nn.Parameter and initialized to exactly 0.01. 2. Edge Function: The edge_function computes the force vectors between pairs of particles. It uses an MLP (edge_mlp) that takes the squared distance between particles as input and outputs a scalar correction factor. This factor is multiplied by the physical force magnitude. The MLP's final layer is initialized such that it outputs 1.0 initially, allowing the network to start with exact physics. 3. Newton's Third Law: The network strictly enforces Newton's Third Law (f_ij = -f_ji). It achieves this by computing a symmetric scalar force magnitude for each pair (since the squared distance is symmetric) and multiplying it by the antisymmetric relative position vector (r_j - r_i). 4. Robustness: To prevent potential NaN values if epsilon approaches zero during training, a dummy value is added to the diagonal of the squared distance matrix before computing the physical force magnitude. The diagonal (self-interactions) is subsequently masked out. 5. Initialization Check: Upon instantiation, the module prints the initialized value of epsilon to confirm it is set correctly.\n\n**Python Code:**\n\n```python\n# filename: codebase/step_2.py\nimport sys\nimport os\nsys.path.insert(0, os.path.abspath(\"codebase\"))\nimport torch\nimport torch.nn as nn\n\nclass GNNInteractionNetwork(nn.Module):\n    def __init__(self, hidden_dim=64):\n        super().__init__()\n        self.epsilon = nn.Parameter(torch.tensor(0.01, dtype=torch.float32))\n        self.edge_mlp = nn.Sequential(\n            nn.Linear(1, hidden_dim),\n            nn.ReLU(),\n            nn.Linear(hidden_dim, hidden_dim),\n            nn.ReLU(),\n            nn.Linear(hidden_dim, 1)\n        )\n        nn.init.zeros_(self.edge_mlp[-1].weight)\n        nn.init.constant_(self.edge_mlp[-1].bias, 1.0)\n        print(\"GNNInteractionNetwork instantiated with learnable epsilon initialized to: \" + str(self.epsilon.item()))\n\n    def edge_function(self, dx, r2):\n        phys_force_mag = 1.0 / (r2 + self.epsilon**2)**1.5\n        edge_inputs = r2.unsqueeze(-1)\n        m_ij = self.edge_mlp(edge_inputs).squeeze(-1)\n        force_mag = m_ij * phys_force_mag\n        force_vectors = force_mag.unsqueeze(-1) * dx\n        return force_vectors\n\n    def forward(self, pos):\n        batch_size, N, _ = pos.shape\n        dx = pos.unsqueeze(1) - pos.unsqueeze(2)\n        r2 = torch.sum(dx**2, dim=-1)\n        mask = ~torch.eye(N, dtype=torch.bool, device=pos.device).unsqueeze(0)\n        r2_safe = r2 + (~mask).float()\n        force_vectors = self.edge_function(dx, r2_safe)\n        force_vectors = force_vectors * mask.unsqueeze(-1)\n        accelerations = torch.sum(force_vectors, dim=2)\n        return accelerations\n\nif __name__ == '__main__':\n    model = GNNInteractionNetwork(hidden_dim=64)\n    batch_size = 2\n    N_particles = 5\n    dummy_pos = torch.randn(batch_size, N_particles, 3)\n    acc = model(dummy_pos)\n    print(\"Input positions shape: \" + str(dummy_pos.shape))\n    print(\"Output accelerations shape: \" + str(acc.shape))\n    total_force = torch.sum(acc, dim=1)\n    max_force_deviation = torch.max(torch.abs(total_force)).item()\n    print(\"Maximum deviation from zero total force (Newton's Third Law check): \" + str(max_force_deviation))\n```",
+    "name": "engineer_response_evaluator",
+    "role": "user"
+  },
+  {
+    "content": "Execution results:\n\nExecution output: \nGNNInteractionNetwork instantiated with learnable epsilon initialized to: 0.009999999776482582\nInput positions shape: torch.Size([2, 5, 3])\nOutput accelerations shape: torch.Size([2, 5, 3])\nMaximum deviation from zero total force (Newton's Third Law check): 1.1920928955078125e-07\n",
+    "name": "executor",
+    "role": "user"
+  },
+  {
+    "content": "Code execution recorded.\n\nExecution output:\nExecution results:\n\nExecution output: \nGNNInteractionNetwork instantiated with learnable epsilon initialized to: 0.009999999776482582\nInput positions shape: torch.Size([2, 5, 3])\nOutput accelerations shape: torch.Size([2, 5, 3])\nMaximum deviation from zero total force (Newton's Third Law check): 1.1920928955078125e-07\n",
+    "name": "execution_recorder",
+    "role": "user"
+  },
+  {
+    "content": "",
+    "name": "executor_response_evaluator",
+    "tool_calls": [
+      {
+        "id": "8953",
+        "function": {
+          "arguments": "{\"next_agent_suggestion\": \"controller\", \"execution_status\": \"success\"}",
+          "name": "post_execution_transfer"
+        },
+        "type": "function",
+        "thought_signature": "EjQKMgG+Pvb7ohiLsn+Aasit38gsnwaqIXihjgwtR5FuVSWb5PHD48KW0IxkFWrYOy66ks8c"
+      }
+    ],
+    "role": "assistant"
+  },
+  {
+    "content": "Code execution status: success. Transfer to controller to evaluate step progress.\n\nxxxxxxxxxxxxxxxxxxxxxxxxxx\n\nWorkflow status:\n\nPlan step number: 2\n\nAgent for sub-task (might be different from the next agent suggestion for debugging): engineer\n\nStep status (before execution): in progress\n\nCode status: success\n\nxxxxxxxxxxxxxxxxxxxxxxxxxx\n\n",
+    "tool_responses": [
+      {
+        "tool_call_id": "8953",
+        "role": "tool",
+        "content": "Code execution status: success. Transfer to controller to evaluate step progress.\n\nxxxxxxxxxxxxxxxxxxxxxxxxxx\n\nWorkflow status:\n\nPlan step number: 2\n\nAgent for sub-task (might be different from the next agent suggestion for debugging): engineer\n\nStep status (before execution): in progress\n\nCode status: success\n\nxxxxxxxxxxxxxxxxxxxxxxxxxx\n\n"
+      }
+    ],
+    "name": "_Group_Tool_Executor",
+    "role": "tool"
+  },
+  {
+    "content": "",
+    "name": "controller",
+    "tool_calls": [
+      {
+        "id": "258",
+        "function": {
+          "arguments": "{\"step_status\": \"completed\"}",
+          "name": "record_status"
+        },
+        "type": "function",
+        "thought_signature": "EjQKMgG+Pvb7RlY+8Ew7Klc7C6Rzn44HKMmiuGi7igvdHMLfJigZtW3w+5qGXHTWSKvq+Mlg"
+      }
+    ],
+    "role": "assistant"
+  },
+  {
+    "content": "\n**Step number:** 2 out of 7.\n\n**Sub-task:** Interaction Network Architecture Implementation\n\n**Agent in charge of sub-task:** `engineer`\n\n**Instructions:**\n\n- Implement a self-contained, reusable GNN module in a dedicated file.\n- Define the edge function to compute gravitational forces with a learnable softening parameter $\\epsilon$ (initialized at 0.01).\n- Enforce Newton\u2019s Third Law in the edge function.\n- Print the value of $\\epsilon$ upon instantiation to confirm correct initialization.\n\n**Step status:** completed \u2705\n\n**Code status:** success\n\n**Step iteration:** 0/10\n        ",
+    "tool_responses": [
+      {
+        "tool_call_id": "258",
+        "role": "tool",
+        "content": "\n**Step number:** 2 out of 7.\n\n**Sub-task:** Interaction Network Architecture Implementation\n\n**Agent in charge of sub-task:** `engineer`\n\n**Instructions:**\n\n- Implement a self-contained, reusable GNN module in a dedicated file.\n- Define the edge function to compute gravitational forces with a learnable softening parameter $\\epsilon$ (initialized at 0.01).\n- Enforce Newton\u2019s Third Law in the edge function.\n- Print the value of $\\epsilon$ upon instantiation to confirm correct initialization.\n\n**Step status:** completed \u2705\n\n**Code status:** success\n\n**Step iteration:** 0/10\n        "
+      }
+    ],
+    "name": "_Group_Tool_Executor",
+    "role": "tool"
+  },
+  {
+    "content": "TERMINATE",
+    "name": "terminator",
+    "role": "user"
+  }
+]

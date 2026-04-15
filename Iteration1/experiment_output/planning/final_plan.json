@@ -1,0 +1,72 @@
+{
+    "sub_tasks": [
+        {
+            "bullet_points": [
+                "Load `ic_final.npy` and `sim_metadata.npy`.",
+                "Re-implement the leapfrog integrator to generate 10 intermediate snapshots at $t \\in \\{0.5, 1.0, \\dots, 4.5\\}$ for each of the 100 simulations.",
+                "Verify consistency of re-generated $t=5.0$ snapshots against the ground-truth final states in `ic_final.npy` within numerical tolerance.",
+                "Normalize positions and velocities based on initial virial radius and velocity dispersion; print summary statistics to confirm physical meaningfulness.",
+                "Save the augmented dataset and implement a data loader supporting particle masking for $N$-sensitivity analysis."
+            ],
+            "sub_task": "Data Preparation, Trajectory Generation, and Normalization",
+            "sub_task_agent": "engineer"
+        },
+        {
+            "bullet_points": [
+                "Implement a self-contained, reusable GNN module in a dedicated file.",
+                "Define the edge function to compute gravitational forces with a learnable softening parameter $\\epsilon$ (initialized at 0.01).",
+                "Enforce Newton’s Third Law in the edge function.",
+                "Print the value of $\\epsilon$ upon instantiation to confirm correct initialization."
+            ],
+            "sub_task": "Interaction Network Architecture Implementation",
+            "sub_task_agent": "engineer"
+        },
+        {
+            "bullet_points": [
+                "Implement symplectic Verlet and RK4 ODE solver wrappers as reusable modules.",
+                "Unit-test these integrators on a known two-body problem to ensure correctness before training.",
+                "Verify that the symplectic integrator preserves energy better than RK4 on the two-body test case."
+            ],
+            "sub_task": "ODE Solver Implementation and Unit Testing",
+            "sub_task_agent": "engineer"
+        },
+        {
+            "bullet_points": [
+                "Train the Symplectic and RK4 Neural ODE models using intermediate snapshots ($t=0$ to $t=2.5$).",
+                "Treat the energy conservation regularization weight $\\lambda$ as a logged hyperparameter.",
+                "Save final weights and separate loss histories (trajectory reconstruction vs. energy penalty) for both models.",
+                "Compute and print baseline MLP performance (direct $t=0$ to $t=5$ regression) on the same 80 simulations for comparison."
+            ],
+            "sub_task": "Model Training and Baseline Comparison",
+            "sub_task_agent": "engineer"
+        },
+        {
+            "bullet_points": [
+                "Perform autonomous integration (rollout) from $t=0$ to $t=5.0$ for all models (Symplectic, RK4, MLP).",
+                "Calculate energy drift ($\\Delta E / \\Delta t$) and mean absolute energy error over the full interval.",
+                "Evaluate performance on held-out simulations (20 runs) and varying $N$ (e.g., $N=25, 40$).",
+                "Save all performance metrics and trajectory data for visualization."
+            ],
+            "sub_task": "Long-Term Rollout and Energy Analysis",
+            "sub_task_agent": "engineer"
+        },
+        {
+            "bullet_points": [
+                "Generate multi-panel figures: trajectory comparisons (predicted vs. true), energy drift over time, $\\epsilon$ convergence history, and MSE breakdown by $N$ value.",
+                "Ensure all plots are saved as high-resolution files in the designated directory."
+            ],
+            "sub_task": "Visualization and Sensitivity Analysis",
+            "sub_task_agent": "engineer"
+        },
+        {
+            "bullet_points": [
+                "Synthesize findings from the comparative ODE frameworks and the MLP baseline.",
+                "Include a quantitative comparison table summarizing MSE on positions and velocities at $t=5.0$ across training and test sets.",
+                "Provide a numerical discussion of energy drift rates and the effectiveness of the learned softening parameter as a physical prior.",
+                "Summarize generalization capabilities and implications for N-body emulation."
+            ],
+            "sub_task": "Final Results Reporting",
+            "sub_task_agent": "researcher"
+        }
+    ]
+}

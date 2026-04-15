@@ -1,0 +1,1 @@
+ls -R /home/node/work
