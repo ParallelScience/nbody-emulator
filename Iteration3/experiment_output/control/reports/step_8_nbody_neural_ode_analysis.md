@@ -1,3 +1,4 @@
+<!-- filename: reports/step_8_nbody_neural_ode_analysis.md -->
 # Symplectic Neural ODE for Virialized N-body Dynamics: Results and Discussion
 
 ## 1. Lyapunov Characterization of the N-body System
