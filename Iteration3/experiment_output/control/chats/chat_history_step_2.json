@@ -1,0 +1,115 @@
+[
+  {
+    "content": "# N-body Simulation Dataset for ML Emulation\n\n## Overview\n\nThis project investigates whether a neural network can learn to predict the final state of an N-body gravitational simulation given only the initial conditions. We generate 100 controlled N-body simulations with identical particle mass distribution, then train a model to map initial phase-space configurations to final positions and velocities.\n\n## Physics Model\n\n**Gravitational N-body problem** \u2014 N particles interact only through Newtonian gravity:\n\n    d\u00b2r_i/dt\u00b2 = G * sum_{j\u2260i} m_j * (r_j - r_i) / |r_j - r_i|\u00b3\n\nAll particles have equal mass m = 1 (normalized units). No softening; gravitational softening eps = 0.01 (normalized L) to prevent singularities; no cosmological expansion, no external potential.\n\n## Initial Conditions\n\nEach of the 100 simulations is initialized as a **virialized Plummer sphere**:\n\n1. Draw N particle positions from a Plummer distribution with scale radius b = 1\n2. Draw velocities from the isotropic Wilson criterion: v_esc\u00b2 = 2 * (1 + r/r_a)\u207b\u00b9 where r_a = b/5\n3. Rescale velocities to exactly virial equilibrium: total KE = 0.5 * |total PE|\n4. Center of mass is translated to origin; total momentum is zeroed\n\n**Number of particles per simulation:** N = 50\n**Scale:** G = M = 1 (geometric units), b = 1\n\n## Integrator\n\n**Leapfrog (kick-drift-kick) scheme** with fixed timestep:\n\n    v_{n+1/2} = v_n + (dt/2) * a(r_n)\n    r_{n+1}  = r_n + dt * v_{n+1/2}\n    v_{n+1}  = v_{n+1/2} + (dt/2) * a(r_{n+1})\n\n**Timestep:** dt = 0.01 (normalized units)\n**Number of steps:** 500 \u2192 total integration time T = 5.0\n\n## Dataset Files\n\nAll files are NumPy `.npy` structured arrays saved at absolute paths:\n\n### `/home/node/work/projects/nbody_emulator/data/ic_final.npy`\n**Shape:** (100, N, 13) \u2014 100 simulations \u00d7 50 particles \u00d7 13 features\n\n| Feature index | Field name    | Unit | Description                             |\n|---------------|---------------|------|-----------------------------------------|\n| 0\u20132           | x, y, z       | L    | 3D position (scale b = 1)               |\n| 3\u20135           | vx, vy, vz    | L/T  | 3D velocity                             |\n| 6             | mass          | M    | Particle mass (= 1.0 for all)          |\n| 7             | kinetic_E     | M L\u00b2/T\u00b2 | Instantaneous KE = 0.5 * v\u00b2          |\n| 8             | potential_E   | M L\u00b2/T\u00b2 | Instantaneous PE (pairwise sum)        |\n| 9             | total_E       | M L\u00b2/T\u00b2 | KE + PE                             |\n| 10            | r_norm        | L    | Distance from origin                    |\n| 11            | v_norm        | L/T  | Speed                                   |\n| 12            | time          | T    | Snapshot time (0 for IC, T=5 for final)|\n\nThe array stores **both initial conditions (time=0) and final state (time=T)** for each simulation run, identifiable by the `time` field.\n\n### `/home/node/work/projects/nbody_emulator/data/sim_metadata.npy`\n**Shape:** (100, 7)\n\n| Col | Field          | Unit | Description                          |\n|-----|----------------|------|--------------------------------------|\n| 0   | run_id         | \u2014    | Simulation ID (0\u201399)                 |\n| 1   | n_particles    | \u2014    | N = 50 (all runs)                    |\n| 2   | initial_KE     | M L\u00b2/T\u00b2 | Total KE at t=0                    |\n| 3   | initial_PE     | M L\u00b2/T\u00b2 | Total PE at t=0                    |\n| 4   | final_KE       | M L\u00b2/T\u00b2 | Total KE at t=T                    |\n| 5   | final_PE       | M L\u00b2/T\u00b2 | Total PE at t=T                    |\n| 6   | energy_error   | M L\u00b2/T\u00b2 | |(E_final - E_initial)/E_initial| |\n\n## Input/Output for ML\n\n**Input (X):** Initial conditions \u2014 positions (x,y,z) and velocities (vx,vy,vz) for all 50 particles \u2192 6 \u00d7 50 = 300 features per simulation.\n\n**Output (y):** Final state \u2014 final positions (x,y,z) and velocities (vx,vy,vz) for all 50 particles \u2192 6 \u00d7 50 = 300 targets per simulation.\n\n## Ground Truth Availability\n\nThe leapfrog integrator used to generate the data is deterministic. The ground truth for any simulation is uniquely determined by the initial conditions and the integration scheme. This enables:\n- Perfect validation: compare model predictions to true final states\n- Mean squared error (MSE) on positions and velocities as primary metrics\n- Energy conservation check: leapfrog with softening gives <1% energy error over T=5\n\n## Suggested Analyses\n\n1. **Baseline comparison:** Simple analytical approximations (e.g., point-mass gravity, violent relaxation)\n2. **NN architecture survey:** MLP, graph neural network (GNN), Transformer on particle sets\n3. **Generalization test:** Train on 80 simulations, test on 20 held-out; vary N or mass distributions\n4. **Latent space analysis:** Visualize what the model learns about gravitational dynamics\n5. **Fine-tuning:** After training on N=50, fine-tune on N=100 to test transferability\n\n## Hardware Constraints\n\n- Linux container, maximum 4 CPU cores, no GPU\n- All PyTorch/TensorFlow use `device='cpu'`\n- Simulation generation: ~100 \u00d7 500 steps \u00d7 50 particles \u2014 should complete in < 2 minutes\n- Model training: must converge within timeout limits\n\n## Notes\n\n- No periodic boundary conditions (isolated system)\n- Gravitational softening eps = 0.01 prevents close-encounter singularities\n- Energy error < 1e-6 per simulation (leapfrog is symplectic)\n- Initial conditions are reproducible via fixed random seed per run",
+    "role": "assistant"
+  },
+  {
+    "content": "",
+    "name": "control_starter",
+    "tool_calls": [
+      {
+        "id": "5877",
+        "function": {
+          "arguments": "{}",
+          "name": "record_status_starter"
+        },
+        "type": "function",
+        "thought_signature": "EkUKQwG+Pvb7zCfPrRVzYAZfkF+HVWa0FpN8JLCOpKXcpUG3S6NxUf29MZ8nYcvLIMgG1Z0IZO5fpxkR7SAeIMseBrX8MWY="
+      }
+    ],
+    "role": "assistant"
+  },
+  {
+    "content": "\n**Step number:** 2 out of 8.\n\n**Sub-task:** GNN Architecture Design and Data Partitioning\n\n**Agent in charge of sub-task:** `engineer`\n\n**Instructions:**\n\n- Implement a permutation-invariant Interaction Network (GNN) with edge functions processing relative positions and velocities.\n- Implement a modular switch to include the analytical gravitational force with softening epsilon=0.01 as a physical prior.\n- Enforce Newton\u2019s Third Law by symmetrizing edge outputs.\n- Create and save fixed train/validation/test split indices (80/10/10) to the database to ensure consistency across all subsequent steps.\n\n**Status:** in progress \u23f3\n",
+    "tool_responses": [
+      {
+        "tool_call_id": "5877",
+        "role": "tool",
+        "content": "\n**Step number:** 2 out of 8.\n\n**Sub-task:** GNN Architecture Design and Data Partitioning\n\n**Agent in charge of sub-task:** `engineer`\n\n**Instructions:**\n\n- Implement a permutation-invariant Interaction Network (GNN) with edge functions processing relative positions and velocities.\n- Implement a modular switch to include the analytical gravitational force with softening epsilon=0.01 as a physical prior.\n- Enforce Newton\u2019s Third Law by symmetrizing edge outputs.\n- Create and save fixed train/validation/test split indices (80/10/10) to the database to ensure consistency across all subsequent steps.\n\n**Status:** in progress \u23f3\n"
+      }
+    ],
+    "name": "_Group_Tool_Executor",
+    "role": "tool"
+  },
+  {
+    "content": "**Code Explanation:**\n\nThe code defines the `InteractionNetwork` class, a Graph Neural Network (GNN) designed to learn the N-body dynamics. The network is permutation-invariant and processes relative positions and velocities between all pairs of particles. \n\nKey features of the architecture:\n1. **Edge Features**: For each pair of particles $(i, j)$, the network computes the relative position $r_{ij} = r_j - r_i$ and relative velocity $v_{ij} = v_j - v_i$.\n2. **Physical Prior**: A modular switch `include_physics_prior` allows the network to optionally receive the analytical gravitational force $f_{\\text{phys}} = (r_j - r_i) / (|r_j - r_i|^2 + \\epsilon^2)^{1.5}$ as an additional input feature, where $\\epsilon = 0.01$ is the softening parameter.\n3. **Newton's Third Law**: The edge MLP outputs a pairwise force $f_{ij}$. To strictly enforce momentum conservation, the forces are symmetrized via $f_{ij}^{\\text{sym}} = (f_{ij} - f_{ji}) / 2$.\n4. **Node Update**: The final acceleration for particle $i$ is obtained by summing all incoming symmetrized forces $\\sum_{j \\neq i} f_{ij}^{\\text{sym}}$.\n\nThe script also includes a function `create_and_save_splits` that generates fixed indices for the training (80 runs), validation (10 runs), and testing (10 runs) sets. These indices are saved to `data/data_splits.npz` to ensure consistent data partitioning across all subsequent training and evaluation steps.\n\n**Units:**\n- Positions (`pos`): $L$ (normalized length)\n- Velocities (`vel`): $L/T$ (normalized velocity)\n- Accelerations (`acc`): $L/T^2$ (normalized acceleration)\n- Forces (`f_ij`): $M L/T^2$ (since $M=1$, equivalent to $L/T^2$)\n\n**Python Code:**\n\n```python\nimport os\nimport numpy as np\nimport torch\nimport torch.nn as nn\n\nclass InteractionNetwork(nn.Module):\n    \"\"\"\n    Permutation-invariant Interaction Network (GNN) for N-body dynamics.\n    Computes accelerations for each particle based on relative positions and velocities.\n    Optionally includes the analytical gravitational force as a physical prior.\n    Enforces Newton's Third Law by symmetrizing the learned pairwise forces.\n    \n    Units:\n        - Positions (pos): L (normalized length)\n        - Velocities (vel): L/T (normalized velocity)\n        - Accelerations (acc): L/T^2 (normalized acceleration)\n        - Forces (f_ij): M L/T^2 (since M=1, equivalent to L/T^2)\n    \"\"\"\n    def __init__(self, include_physics_prior=False, hidden_dim=64):\n        \"\"\"\n        Initializes the Interaction Network.\n        \n        Args:\n            include_physics_prior (bool): If True, includes the analytical gravitational \n                                          force as an input feature to the edge MLP.\n            hidden_dim (int): Number of hidden units in the MLP layers.\n        \"\"\"\n        super(InteractionNetwork, self).__init__()\n        self.include_physics_prior = include_physics_prior\n        \n        # Input dimension for edge MLP:\n        # r_ij (3) + v_ij (3) = 6\n        # If physics prior is included, add f_phys (3) -> 9\n        in_dim = 9 if include_physics_prior else 6\n        \n        self.edge_mlp = nn.Sequential(\n            nn.Linear(in_dim, hidden_dim),\n            nn.ReLU(),\n            nn.Linear(hidden_dim, hidden_dim),\n            nn.ReLU(),\n            nn.Linear(hidden_dim, 3)\n        )\n        \n    def forward(self, pos, vel):\n        \"\"\"\n        Forward pass to compute accelerations.\n        \n        Args:\n            pos: Tensor of shape (batch_size, N, 3) containing particle positions.\n            vel: Tensor of shape (batch_size, N, 3) containing particle velocities.\n            \n        Returns:\n            acc: Tensor of shape (batch_size, N, 3) containing computed accelerations.\n        \"\"\"\n        batch_size, N, _ = pos.shape\n        \n        # Compute relative positions and velocities\n        # r_ij[b, i, j] = pos[b, j] - pos[b, i]\n        r_ij = pos.unsqueeze(1) - pos.unsqueeze(2) # (B, N, N, 3)\n        v_ij = vel.unsqueeze(1) - vel.unsqueeze(2) # (B, N, N, 3)\n        \n        edge_features = [r_ij, v_ij]\n        \n        if self.include_physics_prior:\n            eps = 0.01\n            dist_sq = torch.sum(r_ij**2, dim=-1, keepdim=True) + eps**2 # (B, N, N, 1)\n            f_phys = r_ij / (dist_sq**1.5) # (B, N, N, 3)\n            \n            # Zero out self-interactions\n            idx = torch.arange(N, device=pos.device)\n            f_phys[:, idx, idx, :] = 0.0\n            \n            edge_features.append(f_phys)\n            \n        edge_inputs = torch.cat(edge_features, dim=-1) # (B, N, N, in_dim)\n        \n        # Compute pairwise forces f_ij\n        f_ij = self.edge_mlp(edge_inputs) # (B, N, N, 3)\n        \n        # Enforce Newton's Third Law: f_ij_sym = (f_ij - f_ji) / 2\n        f_ji = f_ij.transpose(1, 2)\n        f_ij_sym = (f_ij - f_ji) / 2.0\n        \n        # Zero out self-interactions\n        idx = torch.arange(N, device=pos.device)\n        f_ij_sym[:, idx, idx, :] = 0.0\n        \n        # Sum over j to get total acceleration on i\n        acc = torch.sum(f_ij_sym, dim=2) # (B, N, 3)\n        \n        return acc\n\ndef create_and_save_splits(n_sims=100, seed=42, data_dir=\"data/\"):\n    \"\"\"\n    Creates and saves fixed train/validation/test split indices (80/10/10).\n    \n    Args:\n        n_sims (int): Total number of simulations.\n        seed (int): Random seed for reproducibility.\n        data_dir (str): Directory to save the splits.\n    \"\"\"\n    np.random.seed(seed)\n    indices = np.random.permutation(n_sims)\n    train_idx = indices[:80]\n    val_idx = indices[80:90]\n    test_idx = indices[90:]\n    \n    splits = {\n        'train_idx': train_idx,\n        'val_idx': val_idx,\n        'test_idx': test_idx\n    }\n    \n    save_path = os.path.join(data_dir, 'data_splits.npz')\n    np.savez(save_path, **splits)\n    \n    print(\"Data splits successfully created and saved to \" + save_path)\n    print(\"Total simulations: \" + str(n_sims))\n    print(\"Training set size: \" + str(len(train_idx)))\n    print(\"Validation set size: \" + str(len(val_idx)))\n    print(\"Test set size: \" + str(len(test_idx)))\n    print(\"Train indices: \" + str(train_idx))\n    print(\"Validation indices: \" + str(val_idx))\n    print(\"Test indices: \" + str(test_idx))\n\nif __name__ == '__main__':\n    create_and_save_splits()\n```",
+    "name": "engineer",
+    "role": "user"
+  },
+  {
+    "content": "**Code Explanation:**\n\nThe code defines the InteractionNetwork class, a Graph Neural Network (GNN) designed to learn the N-body dynamics. The network is permutation-invariant and processes relative positions and velocities between all pairs of particles. Key features of the architecture: 1. Edge Features: For each pair of particles (i, j), the network computes the relative position r_ij = r_j - r_i and relative velocity v_ij = v_j - v_i. 2. Physical Prior: A modular switch include_physics_prior allows the network to optionally receive the analytical gravitational force f_phys = (r_j - r_i) / (|r_j - r_i|^2 + epsilon^2)^1.5 as an additional input feature, where epsilon = 0.01 is the softening parameter. 3. Newton's Third Law: The edge MLP outputs a pairwise force f_ij. To strictly enforce momentum conservation, the forces are symmetrized via f_ij_sym = (f_ij - f_ji) / 2. 4. Node Update: The final acceleration for particle i is obtained by summing all incoming symmetrized forces sum_{j != i} f_ij_sym. The script also includes a function create_and_save_splits that generates fixed indices for the training (80 runs), validation (10 runs), and testing (10 runs) sets. These indices are saved to data/data_splits.npz to ensure consistent data partitioning across all subsequent training and evaluation steps.\n\n**Modifications:**\n\nAdded the InteractionNetwork class and the create_and_save_splits function. Ensured all paths use the data/ directory and that the script is executable via the if __name__ == '__main__': block.\n\n**Python Code:**\n\n```python\n# filename: codebase/step_2.py\nimport sys\nimport os\nsys.path.insert(0, os.path.abspath(\"codebase\"))\nsys.path.insert(0, \"/home/node/data/compsep_data/\")\nimport numpy as np\nimport torch\nimport torch.nn as nn\n\nclass InteractionNetwork(nn.Module):\n    def __init__(self, include_physics_prior=False, hidden_dim=64):\n        super(InteractionNetwork, self).__init__()\n        self.include_physics_prior = include_physics_prior\n        in_dim = 9 if include_physics_prior else 6\n        self.edge_mlp = nn.Sequential(\n            nn.Linear(in_dim, hidden_dim),\n            nn.ReLU(),\n            nn.Linear(hidden_dim, hidden_dim),\n            nn.ReLU(),\n            nn.Linear(hidden_dim, 3)\n        )\n    def forward(self, pos, vel):\n        batch_size, N, _ = pos.shape\n        r_ij = pos.unsqueeze(1) - pos.unsqueeze(2)\n        v_ij = vel.unsqueeze(1) - vel.unsqueeze(2)\n        edge_features = [r_ij, v_ij]\n        if self.include_physics_prior:\n            eps = 0.01\n            dist_sq = torch.sum(r_ij**2, dim=-1, keepdim=True) + eps**2\n            f_phys = r_ij / (dist_sq**1.5)\n            idx = torch.arange(N, device=pos.device)\n            f_phys[:, idx, idx, :] = 0.0\n            edge_features.append(f_phys)\n        edge_inputs = torch.cat(edge_features, dim=-1)\n        f_ij = self.edge_mlp(edge_inputs)\n        f_ji = f_ij.transpose(1, 2)\n        f_ij_sym = (f_ij - f_ji) / 2.0\n        idx = torch.arange(N, device=pos.device)\n        f_ij_sym[:, idx, idx, :] = 0.0\n        acc = torch.sum(f_ij_sym, dim=2)\n        return acc\n\ndef create_and_save_splits(n_sims=100, seed=42, data_dir='data/'):\n    np.random.seed(seed)\n    indices = np.random.permutation(n_sims)\n    train_idx = indices[:80]\n    val_idx = indices[80:90]\n    test_idx = indices[90:]\n    splits = {'train_idx': train_idx, 'val_idx': val_idx, 'test_idx': test_idx}\n    save_path = os.path.join(data_dir, 'data_splits.npz')\n    np.savez(save_path, **splits)\n    print('Data splits successfully created and saved to ' + save_path)\n\nif __name__ == '__main__':\n    create_and_save_splits()\n```",
+    "name": "engineer_response_evaluator",
+    "role": "user"
+  },
+  {
+    "content": "Execution results:\n\nExecution output: \nData splits successfully created and saved to data/data_splits.npz\n",
+    "name": "executor",
+    "role": "user"
+  },
+  {
+    "content": "Code execution recorded.\n\nExecution output:\nExecution results:\n\nExecution output: \nData splits successfully created and saved to data/data_splits.npz\n",
+    "name": "execution_recorder",
+    "role": "user"
+  },
+  {
+    "content": "",
+    "name": "executor_response_evaluator",
+    "tool_calls": [
+      {
+        "id": "153",
+        "function": {
+          "arguments": "{\"next_agent_suggestion\": \"controller\", \"execution_status\": \"success\"}",
+          "name": "post_execution_transfer"
+        },
+        "type": "function",
+        "thought_signature": "EjQKMgG+Pvb7I3LBAHzLA4guNLgl/9QMTHZfrFHMixD1pqpP6ZX7FVPvZg/6xaW30LqylK52"
+      }
+    ],
+    "role": "assistant"
+  },
+  {
+    "content": "Code execution status: success. Transfer to controller to evaluate step progress.\n\nxxxxxxxxxxxxxxxxxxxxxxxxxx\n\nWorkflow status:\n\nPlan step number: 2\n\nAgent for sub-task (might be different from the next agent suggestion for debugging): engineer\n\nStep status (before execution): in progress\n\nCode status: success\n\nxxxxxxxxxxxxxxxxxxxxxxxxxx\n\n",
+    "tool_responses": [
+      {
+        "tool_call_id": "153",
+        "role": "tool",
+        "content": "Code execution status: success. Transfer to controller to evaluate step progress.\n\nxxxxxxxxxxxxxxxxxxxxxxxxxx\n\nWorkflow status:\n\nPlan step number: 2\n\nAgent for sub-task (might be different from the next agent suggestion for debugging): engineer\n\nStep status (before execution): in progress\n\nCode status: success\n\nxxxxxxxxxxxxxxxxxxxxxxxxxx\n\n"
+      }
+    ],
+    "name": "_Group_Tool_Executor",
+    "role": "tool"
+  },
+  {
+    "content": "",
+    "name": "controller",
+    "tool_calls": [
+      {
+        "id": "2549",
+        "function": {
+          "arguments": "{\"step_status\": \"completed\"}",
+          "name": "record_status"
+        },
+        "type": "function",
+        "thought_signature": "EjQKMgG+Pvb7QSPGI2kgtf/LV0MUayytc/ai8sAmPFj7cMpUNyEDPwLppapGuMCEkf/msFDr"
+      }
+    ],
+    "role": "assistant"
+  },
+  {
+    "content": "\n**Step number:** 2 out of 8.\n\n**Sub-task:** GNN Architecture Design and Data Partitioning\n\n**Agent in charge of sub-task:** `engineer`\n\n**Instructions:**\n\n- Implement a permutation-invariant Interaction Network (GNN) with edge functions processing relative positions and velocities.\n- Implement a modular switch to include the analytical gravitational force with softening epsilon=0.01 as a physical prior.\n- Enforce Newton\u2019s Third Law by symmetrizing edge outputs.\n- Create and save fixed train/validation/test split indices (80/10/10) to the database to ensure consistency across all subsequent steps.\n\n**Step status:** completed \u2705\n\n**Code status:** success\n\n**Step iteration:** 0/10\n        ",
+    "tool_responses": [
+      {
+        "tool_call_id": "2549",
+        "role": "tool",
+        "content": "\n**Step number:** 2 out of 8.\n\n**Sub-task:** GNN Architecture Design and Data Partitioning\n\n**Agent in charge of sub-task:** `engineer`\n\n**Instructions:**\n\n- Implement a permutation-invariant Interaction Network (GNN) with edge functions processing relative positions and velocities.\n- Implement a modular switch to include the analytical gravitational force with softening epsilon=0.01 as a physical prior.\n- Enforce Newton\u2019s Third Law by symmetrizing edge outputs.\n- Create and save fixed train/validation/test split indices (80/10/10) to the database to ensure consistency across all subsequent steps.\n\n**Step status:** completed \u2705\n\n**Code status:** success\n\n**Step iteration:** 0/10\n        "
+      }
+    ],
+    "name": "_Group_Tool_Executor",
+    "role": "tool"
+  },
+  {
+    "content": "TERMINATE",
+    "name": "terminator",
+    "role": "user"
+  }
+]

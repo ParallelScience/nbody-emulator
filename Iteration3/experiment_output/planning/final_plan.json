@@ -1,0 +1,80 @@
+{
+    "sub_tasks": [
+        {
+            "bullet_points": [
+                "Load pre-existing data from /home/node/work/projects/nbody_emulator/data/ic_final.npy and /home/node/work/projects/nbody_emulator/data/sim_metadata.npy.",
+                "Extract initial conditions and re-run the leapfrog integrator to generate 10 intermediate snapshots (t in {0.5, ..., 4.5}) for each of the 100 simulations.",
+                "Compute ground-truth accelerations for all particles at each snapshot.",
+                "Calculate the global Lyapunov time for each simulation by evolving perturbed initial conditions (delta r approx 10^-8) and measuring the divergence rate.",
+                "Print a summary of the Lyapunov time distribution (mean, median, min, max) and save a histogram plot of Lyapunov times to the database."
+            ],
+            "sub_task": "Dataset Preparation and Lyapunov Characterization",
+            "sub_task_agent": "engineer"
+        },
+        {
+            "bullet_points": [
+                "Implement a permutation-invariant Interaction Network (GNN) with edge functions processing relative positions and velocities.",
+                "Implement a modular switch to include the analytical gravitational force with softening epsilon=0.01 as a physical prior.",
+                "Enforce Newton’s Third Law by symmetrizing edge outputs.",
+                "Create and save fixed train/validation/test split indices (80/10/10) to the database to ensure consistency across all subsequent steps."
+            ],
+            "sub_task": "GNN Architecture Design and Data Partitioning",
+            "sub_task_agent": "engineer"
+        },
+        {
+            "bullet_points": [
+                "Train the GNN to minimize the MSE between predicted and ground-truth accelerations across the intermediate snapshots.",
+                "Use the Adam optimizer with a learning rate scheduler.",
+                "Save the training curve plot (training and validation loss vs. epoch) and print final training/validation MSE values.",
+                "Save the trained model weights."
+            ],
+            "sub_task": "Training Protocol",
+            "sub_task_agent": "engineer"
+        },
+        {
+            "bullet_points": [
+                "Train two model variants: (A) Physics-Informed (with analytical force input) and (B) Learned-Only (raw kinematics only).",
+                "Evaluate both models on the test set to quantify the impact of the physical prior.",
+                "Produce a side-by-side bar chart comparing test-set acceleration MSE and print numerical MSE values for both models."
+            ],
+            "sub_task": "Ablation Study: Physics Prior vs. Learned Dynamics",
+            "sub_task_agent": "engineer"
+        },
+        {
+            "bullet_points": [
+                "Integrate the learned force field using both leapfrog (symplectic) and RK4 (non-symplectic) integrators.",
+                "Compute energy drift as the time-series variance of total energy normalized by the initial total energy.",
+                "Produce a plot of energy vs. time for four rollout conditions (GNN+leapfrog, GNN+RK4, MLP+leapfrog, MLP+RK4) and print all numerical drift values."
+            ],
+            "sub_task": "Hamiltonian Consistency Analysis",
+            "sub_task_agent": "engineer"
+        },
+        {
+            "bullet_points": [
+                "Generate test sets with N=25 and N=100 particles using the same Plummer sphere initialization parameters and fixed random seeds.",
+                "Evaluate the N=50 trained model on these new sets.",
+                "Print a quantitative table of per-particle MSE and energy conservation error for each N value compared to the N=50 baseline."
+            ],
+            "sub_task": "N-Scaling Generalization Test",
+            "sub_task_agent": "engineer"
+        },
+        {
+            "bullet_points": [
+                "Compare the GNN emulator against a baseline MLP that maps t=0 directly to t=5.",
+                "Produce a single composite figure containing subplots for: (a) MSE vs. integration time, (b) energy drift comparison, and (c) trajectory divergence relative to the Lyapunov time.",
+                "Print all numerical benchmark values for inclusion in the final report."
+            ],
+            "sub_task": "Benchmarking and Performance Validation",
+            "sub_task_agent": "engineer"
+        },
+        {
+            "bullet_points": [
+                "Synthesize results from the ablation study, Lyapunov analysis, and N-scaling tests.",
+                "Write a structured Results section covering: (1) Lyapunov characterization, (2) acceleration learning and ablation findings, (3) Hamiltonian consistency and energy drift, (4) N-scaling generalization, and (5) GNN vs. MLP benchmark comparison.",
+                "Reference all plots generated in Steps 1–7 by their descriptive filenames."
+            ],
+            "sub_task": "Final Evaluation and Reporting",
+            "sub_task_agent": "researcher"
+        }
+    ]
+}

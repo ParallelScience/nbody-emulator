@@ -1,0 +1,1 @@
+find /home/node/work/projects/ -name "ic_final.npy" -o -name "sim_metadata.npy"
