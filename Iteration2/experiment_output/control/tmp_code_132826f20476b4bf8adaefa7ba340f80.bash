@@ -1,0 +1,1 @@
+find /home/node/work/projects/nbody_emulator/data -name "ic_final.npy"

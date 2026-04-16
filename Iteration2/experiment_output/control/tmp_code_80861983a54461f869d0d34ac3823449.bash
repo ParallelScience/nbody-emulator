@@ -1,0 +1,1 @@
+find . -name "ic_final.npy"

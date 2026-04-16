@@ -1,0 +1,66 @@
+{
+    "sub_tasks": [
+        {
+            "bullet_points": [
+                "Load ic_final.npy and sim_metadata.npy from the provided paths.",
+                "Separate IC (time=0) and final (time=T=5) states using the time field.",
+                "Print summary statistics (mean, std, min, max) for positions, velocities, and energy fields to confirm data integrity.",
+                "Implement the leapfrog integrator (epsilon=0.01, dt=0.01) to generate 10 intermediate snapshots at t in {0.5, 1.0, ..., 4.5}.",
+                "Compute and save ground-truth acceleration vectors at each snapshot for training targets.",
+                "Normalize data using global statistics and save the processed trajectory dataset to the database folder."
+            ],
+            "sub_task": "Data Preprocessing and Snapshot Generation",
+            "sub_task_agent": "engineer"
+        },
+        {
+            "bullet_points": [
+                "Implement the permutation-invariant Interaction Network as a standalone Python module in the codebase folder.",
+                "Define the edge function phi(r_i, r_j, epsilon) with fixed epsilon=0.01.",
+                "Implement a unit test (forward pass on 3 particles) to verify Newton's Third Law (f_ij = -f_ji) by checking that the sum of pairwise forces is numerically zero.",
+                "Save the architecture definition for use in subsequent steps."
+            ],
+            "sub_task": "GNN Architecture Design and Unit Testing",
+            "sub_task_agent": "engineer"
+        },
+        {
+            "bullet_points": [
+                "Implement curriculum learning by sampling N=2 and N=3 particle sub-systems from the existing 100 simulations before scaling to N=50.",
+                "Train the model to minimize MSE between predicted and ground-truth Delta v_i.",
+                "Incorporate a penalty for linear momentum violation and a physics-informed regularization term for local energy drift.",
+                "Print and save training/validation loss curves (plot of loss vs. epoch) to document convergence."
+            ],
+            "sub_task": "Supervised Force-Field Training with Curriculum Learning",
+            "sub_task_agent": "engineer"
+        },
+        {
+            "bullet_points": [
+                "Integrate the trained GNN into a leapfrog solver to perform t=0 to t=5 rollouts.",
+                "Compare GNN-integrated trajectories against ground-truth leapfrog results for 20 held-out simulations.",
+                "Produce a multi-panel plot showing the time evolution of total energy (KE+PE) for GNN vs. ground-truth.",
+                "Print the mean and standard deviation of the relative energy error across the held-out set."
+            ],
+            "sub_task": "Rollout Evaluation and Energy Conservation Analysis",
+            "sub_task_agent": "engineer"
+        },
+        {
+            "bullet_points": [
+                "Train a baseline MLP to map t=0 directly to t=5.",
+                "Generate histograms of per-particle position and velocity MSE for both GNN and MLP.",
+                "Print median and 95th-percentile errors for both models to characterize tail behavior.",
+                "Synthesize comparative plots (energy drift, error distributions) for the researcher."
+            ],
+            "sub_task": "Comparative Benchmarking and Error Distribution Analysis",
+            "sub_task_agent": "engineer"
+        },
+        {
+            "bullet_points": [
+                "Interpret the performance metrics of the GNN vs. the MLP baseline.",
+                "Discuss the effectiveness of the physics-informed regularization and the learned Hamiltonian flow.",
+                "Summarize generalization capabilities, the impact of the permutation-invariant architecture, and the significance of the error distributions.",
+                "Synthesize all quantitative findings into a cohesive scientific report."
+            ],
+            "sub_task": "Results Synthesis and Reporting",
+            "sub_task_agent": "researcher"
+        }
+    ]
+}

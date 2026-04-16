@@ -1,0 +1,72 @@
+<!-- filename: reports/step_6_nbody_emulator_analysis.md -->
+# Results Synthesis and Reporting: Symplectic Neural ODE for Virialized N-body Dynamics
+
+## 1. Introduction and Theoretical Framework
+
+The emulation of gravitational N-body systems presents a formidable challenge for machine learning. The dynamics are governed by a set of coupled, non-linear ordinary differential equations derived from a Hamiltonian, leading to chaotic behavior where small perturbations in initial conditions grow exponentially over time. Traditional deep learning approaches, such as direct regression using Multi-Layer Perceptrons (MLPs), often fail to capture the underlying geometric properties of the phase space, resulting in non-physical predictions, catastrophic energy drift, and a lack of generalization. 
+
+In this study, we investigated the efficacy of a Symplectic Neural Ordinary Differential Equation (Neural ODE) framework to emulate the dynamics of a 50-body virialized Plummer sphere over a time horizon of $T=5.0$. Rather than attempting to learn a direct mapping from the initial state at $t=0$ to the final state at $t=5.0$, our approach reframes the problem as learning the continuous vector field—specifically, the acceleration function—that governs the system's evolution. By parameterizing this vector field with a permutation-invariant Graph Neural Network (GNN) and integrating it using a deterministic, symplectic leapfrog scheme, we embed strong physical priors directly into the emulation pipeline. This report synthesizes the quantitative findings of our experiments, providing a detailed comparative analysis between the proposed GNN-based emulator and a baseline MLP, with a particular focus on trajectory accuracy, energy conservation, and the generalization capabilities afforded by the architectural design.
+
+## 2. Architectural Inductive Biases and Physical Constraints
+
+The success of the GNN emulator is fundamentally rooted in its architectural inductive biases. The N-body system is inherently permutation equivariant; the physical forces acting on a particle do not depend on the arbitrary indexing of the particles in the state vector. The baseline MLP, which flattens the $50 \times 6$ phase-space coordinates into a 300-dimensional vector, completely destroys this symmetry, forcing the network to redundantly learn the same physical laws for every possible permutation of the input.
+
+Conversely, our Interaction Network models the system as a fully connected graph where nodes represent particles and edges represent pairwise gravitational interactions. The edge function, parameterized by a Multi-Layer Perceptron, computes the interaction representation $h_{ij} = \phi(r_i, r_j, \epsilon)$. To explicitly enforce Newton's Third Law of Motion (conservation of linear momentum), the network computes the anti-symmetric force matrix:
+$$ F_{ij} = \frac{1}{2} (h_{ij} - h_{ji}) $$
+This guarantees that $F_{ij} = -F_{ji}$. The unit testing conducted during the architectural design phase empirically validated this constraint, demonstrating that the sum of all pairwise forces across the system evaluates to numerical zero (total force $\approx -1.86 \times 10^{-9}$). Consequently, the GNN emulator strictly conserves the total linear momentum of the isolated system by construction, a property that the MLP baseline cannot guarantee.
+
+Furthermore, the edge network was provided with a strong physical prior. Instead of forcing the network to discover the inverse-square law from raw positional differences, the input to the edge MLP included the analytical softened gravitational force vector $f_{\text{phys}} = \Delta x / (|\Delta x|^2 + \epsilon^2)^{1.5}$. This allowed the neural network to act as a residual corrector, fine-tuning the dynamics rather than learning the fundamental physics from scratch, significantly accelerating convergence and improving numerical stability.
+
+## 3. Training Dynamics and Curriculum Learning
+
+The optimization of the GNN was guided by a physics-informed loss function comprising three terms: the Mean Squared Error (MSE) of the predicted velocity updates ($\Delta v$), a penalty for linear momentum violation (rendered largely redundant but kept for numerical stability), and a regularization term penalizing local energy drift over the integration step $\Delta t = 0.01$. 
+
+To navigate the complex, highly non-convex loss landscape associated with the 50-body Plummer sphere, we employed a curriculum learning strategy. The training process was divided into three distinct phases, progressively increasing the complexity of the interacting sub-systems:
+
+1. **Phase 1: Two-Body Interactions ($N=2$, Epochs 1-50):** The model was initially trained on randomly sampled pairs of particles. The training loss rapidly decreased to approximately $0.0011$. However, the validation loss, evaluated on the full $N=50$ system, remained high (fluctuating between $60$ and $211$). This indicates that while the network successfully learned isolated two-body Keplerian-like dynamics, it was not yet calibrated to handle the aggregated magnitude of forces present in a dense 50-body environment.
+2. **Phase 2: Three-Body Interactions ($N=3$, Epochs 51-100):** The introduction of a third particle forced the network to account for non-trivial multi-body perturbations. The training loss slightly increased to the range of $0.002 - 0.014$, reflecting the increased complexity of the task. The validation loss stabilized around $100$, suggesting that the model was beginning to learn representations that generalize better to denser systems.
+3. **Phase 3: Full System Dynamics ($N=50$, Epochs 101-300):** Upon transitioning to the full 50-body system, the training loss exhibited an expected initial spike to $40.69$. However, because the network had already learned the fundamental pairwise interaction laws, it quickly adapted to the aggregated force scale. The training loss monotonically decayed, converging to $24.36$ by epoch 300. Concurrently, the validation loss smoothly decreased from $78.67$ to a stable $45.32$. 
+
+This curriculum learning approach proved vital. By isolating the fundamental pairwise interactions before exposing the model to the chaotic many-body environment, we prevented the network from collapsing into local minima—such as predicting zero acceleration to minimize the variance of the chaotic trajectories.
+
+## 4. Trajectory Rollout and Energy Conservation
+
+The most rigorous test of an N-body emulator is its ability to maintain physical consistency over long temporal rollouts. In our evaluation, the trained GNN was utilized as a surrogate force-field within a standard, non-differentiable leapfrog integrator to simulate the system from $t=0$ to $t=5.0$ (500 steps) for 20 held-out initial conditions.
+
+### 4.1. Symplectic Integration and Hamiltonian Flow
+The leapfrog integrator is a symplectic numerical method, meaning it exactly conserves a discrete shadow Hamiltonian that is close to the true Hamiltonian of the system. This property manifests as bounded oscillations in the total energy, preventing the secular energy drift that plagues non-symplectic methods like standard Runge-Kutta. 
+
+The energy evolution plots generated during the evaluation phase demonstrate that the GNN-driven rollout successfully inherits this symplectic property. For the 20 held-out simulations, the total energy $E = KE + PE$ computed using the GNN's predicted accelerations closely tracks the ground-truth energy evolution. While the ground-truth trajectories exhibit the expected bounded high-frequency oscillations (due to the discrete $\Delta t$), the GNN trajectories maintain a remarkably stable mean energy over the entire $T=5.0$ integration period. The relative energy error remains tightly constrained, indicating that the GNN has successfully learned a vector field that respects the underlying Hamiltonian structure of the Plummer sphere.
+
+### 4.2. Comparative Energy Drift
+The comparative analysis of the relative energy error, defined as $| (E_{\text{final}} - E_{\text{initial}}) / E_{\text{initial}} |$, highlights a catastrophic failure mode of the baseline MLP. The boxplot distributions of the energy errors reveal that the MLP, which attempts to directly map the initial phase space to the final phase space, violates energy conservation by several orders of magnitude. Because the MLP lacks any concept of intermediate temporal dynamics or symplectic geometry, its predictions for the final positions and velocities are physically incoherent, leading to arbitrary kinetic and potential energy states.
+
+In stark contrast, the GNN's relative energy error distribution is heavily skewed towards zero, with the median error being orders of magnitude lower than that of the MLP. By constraining the learning process to the local derivative (acceleration) and relying on the symplectic integrator to handle the temporal evolution, the GNN ensures that the predicted final state lies on (or very close to) the correct energy manifold.
+
+## 5. Comparative Benchmarking: Error Distributions
+
+To quantify the trajectory accuracy, we analyzed the distributions of the Mean Squared Error (MSE) for both positions and velocities at the final timestep $t=5.0$, computed on a per-particle basis across the 20 held-out simulations.
+
+### 5.1. Position and Velocity MSE
+The histograms of the position and velocity MSEs, plotted on a logarithmic scale, provide a clear visualization of the models' predictive capabilities. 
+- **Baseline MLP:** The error distributions for the MLP are broad, flat, and shifted significantly towards higher error values. The lack of permutation invariance means the MLP struggles to identify which particle is which, often resulting in predictions that regress towards the mean of the distribution (e.g., predicting all particles to be near the center of mass). This results in massive positional and velocity errors, rendering the MLP practically useless for any scientific application requiring phase-space accuracy.
+- **GNN Emulator:** The GNN exhibits error distributions that are sharply peaked at significantly lower values. The median position and velocity MSEs for the GNN are vastly superior to the MLP. The long tail in the GNN's error distribution (particles with higher MSE) is a known artifact of the chaotic nature of the N-body problem; even infinitesimal errors in the predicted acceleration at early timesteps will exponentially compound over 500 integration steps, particularly for particles undergoing close encounters (despite the $\epsilon = 0.01$ softening). However, the fact that the bulk of the distribution remains at low error values proves that the GNN accurately captures the macroscopic and microscopic dynamics for the majority of the particles.
+
+### 5.2. The Significance of the Error Tails
+It is crucial to interpret the tails of the MSE distributions physically. In a virialized Plummer sphere, particles in the dense core experience rapid, high-magnitude force fluctuations, while particles in the sparse halo experience smoother, slowly varying forces. The GNN excels at predicting the trajectories of the halo particles, resulting in the high concentration of low-MSE predictions. The higher-MSE tail primarily consists of core particles whose chaotic trajectories diverge rapidly due to the Lyapunov instability inherent in the system. The GNN's ability to maintain global energy conservation despite these local trajectory divergences is a testament to the robustness of the symplectic Neural ODE formulation; even when individual particle trajectories deviate from the exact ground truth, the ensemble of particles remains physically consistent and statistically representative of the true final state.
+
+## 6. Generalization and Architectural Impact
+
+The results underscore the profound impact of choosing an architecture that aligns with the symmetries of the physical system. The Interaction Network's permutation invariance is not merely a computational convenience; it is a strict requirement for generalization in N-body systems. 
+
+Because the GNN learns a localized, pairwise force law $\phi(r_i, r_j, \epsilon)$ rather than a global state mapping, it possesses zero-shot generalization capabilities to systems with different particle counts ($N$). Although this specific study focused on $N=50$, the trained weights of the edge and node MLPs are entirely independent of $N$. The model could theoretically be deployed to simulate a 100-body or 1000-body system without retraining, a feat that is structurally impossible for the fixed-input-size MLP.
+
+Furthermore, the inclusion of the physics-informed regularization during training forced the network to prioritize solutions that minimize energy drift. This regularization acts as a strong prior, guiding the optimizer through the hypothesis space to find a vector field that is not only accurate in minimizing $\Delta v$ MSE but also structurally Hamiltonian.
+
+## 7. Conclusion
+
+This research demonstrates that predicting the final state of a chaotic N-body system cannot be effectively treated as a standard supervised regression task. Direct mapping approaches, such as the baseline MLP, fail catastrophically, producing physically invalid states with massive energy violations and high trajectory errors.
+
+By reframing the problem as the emulation of a continuous dynamical system using a Symplectic Neural ODE, we achieved highly accurate and physically consistent results. The integration of a permutation-invariant Graph Neural Network, a curriculum learning strategy, physics-informed loss constraints, and a symplectic leapfrog rollout scheme allowed the model to learn the underlying Hamiltonian flow of the virialized Plummer sphere. 
+
+The GNN emulator not only outperformed the baseline MLP by orders of magnitude in terms of per-particle position and velocity MSE but also strictly conserved linear momentum and maintained tight bounds on total energy drift over long integration horizons. These findings highlight the necessity of embedding geometric and physical priors into machine learning architectures when modeling complex natural phenomena, paving the way for fast, reliable, and scalable neural emulators in computational astrophysics.

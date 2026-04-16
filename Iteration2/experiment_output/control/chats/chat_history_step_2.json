@@ -1,0 +1,115 @@
+[
+  {
+    "content": "# N-body Simulation Dataset for ML Emulation\n\n## Overview\n\nThis project investigates whether a neural network can learn to predict the final state of an N-body gravitational simulation given only the initial conditions. We generate 100 controlled N-body simulations with identical particle mass distribution, then train a model to map initial phase-space configurations to final positions and velocities.\n\n## Physics Model\n\n**Gravitational N-body problem** \u2014 N particles interact only through Newtonian gravity:\n\n    d\u00b2r_i/dt\u00b2 = G * sum_{j\u2260i} m_j * (r_j - r_i) / |r_j - r_i|\u00b3\n\nAll particles have equal mass m = 1 (normalized units). No softening; gravitational softening eps = 0.01 (normalized L) to prevent singularities; no cosmological expansion, no external potential.\n\n## Initial Conditions\n\nEach of the 100 simulations is initialized as a **virialized Plummer sphere**:\n\n1. Draw N particle positions from a Plummer distribution with scale radius b = 1\n2. Draw velocities from the isotropic Wilson criterion: v_esc\u00b2 = 2 * (1 + r/r_a)\u207b\u00b9 where r_a = b/5\n3. Rescale velocities to exactly virial equilibrium: total KE = 0.5 * |total PE|\n4. Center of mass is translated to origin; total momentum is zeroed\n\n**Number of particles per simulation:** N = 50\n**Scale:** G = M = 1 (geometric units), b = 1\n\n## Integrator\n\n**Leapfrog (kick-drift-kick) scheme** with fixed timestep:\n\n    v_{n+1/2} = v_n + (dt/2) * a(r_n)\n    r_{n+1}  = r_n + dt * v_{n+1/2}\n    v_{n+1}  = v_{n+1/2} + (dt/2) * a(r_{n+1})\n\n**Timestep:** dt = 0.01 (normalized units)\n**Number of steps:** 500 \u2192 total integration time T = 5.0\n\n## Dataset Files\n\nAll files are NumPy `.npy` structured arrays saved at absolute paths:\n\n### `/home/node/work/projects/nbody_emulator/data/ic_final.npy`\n**Shape:** (100, N, 13) \u2014 100 simulations \u00d7 50 particles \u00d7 13 features\n\n| Feature index | Field name    | Unit | Description                             |\n|---------------|---------------|------|-----------------------------------------|\n| 0\u20132           | x, y, z       | L    | 3D position (scale b = 1)               |\n| 3\u20135           | vx, vy, vz    | L/T  | 3D velocity                             |\n| 6             | mass          | M    | Particle mass (= 1.0 for all)          |\n| 7             | kinetic_E     | M L\u00b2/T\u00b2 | Instantaneous KE = 0.5 * v\u00b2          |\n| 8             | potential_E   | M L\u00b2/T\u00b2 | Instantaneous PE (pairwise sum)        |\n| 9             | total_E       | M L\u00b2/T\u00b2 | KE + PE                             |\n| 10            | r_norm        | L    | Distance from origin                    |\n| 11            | v_norm        | L/T  | Speed                                   |\n| 12            | time          | T    | Snapshot time (0 for IC, T=5 for final)|\n\nThe array stores **both initial conditions (time=0) and final state (time=T)** for each simulation run, identifiable by the `time` field.\n\n### `/home/node/work/projects/nbody_emulator/data/sim_metadata.npy`\n**Shape:** (100, 7)\n\n| Col | Field          | Unit | Description                          |\n|-----|----------------|------|--------------------------------------|\n| 0   | run_id         | \u2014    | Simulation ID (0\u201399)                 |\n| 1   | n_particles    | \u2014    | N = 50 (all runs)                    |\n| 2   | initial_KE     | M L\u00b2/T\u00b2 | Total KE at t=0                    |\n| 3   | initial_PE     | M L\u00b2/T\u00b2 | Total PE at t=0                    |\n| 4   | final_KE       | M L\u00b2/T\u00b2 | Total KE at t=T                    |\n| 5   | final_PE       | M L\u00b2/T\u00b2 | Total PE at t=T                    |\n| 6   | energy_error   | M L\u00b2/T\u00b2 | |(E_final - E_initial)/E_initial| |\n\n## Input/Output for ML\n\n**Input (X):** Initial conditions \u2014 positions (x,y,z) and velocities (vx,vy,vz) for all 50 particles \u2192 6 \u00d7 50 = 300 features per simulation.\n\n**Output (y):** Final state \u2014 final positions (x,y,z) and velocities (vx,vy,vz) for all 50 particles \u2192 6 \u00d7 50 = 300 targets per simulation.\n\n## Ground Truth Availability\n\nThe leapfrog integrator used to generate the data is deterministic. The ground truth for any simulation is uniquely determined by the initial conditions and the integration scheme. This enables:\n- Perfect validation: compare model predictions to true final states\n- Mean squared error (MSE) on positions and velocities as primary metrics\n- Energy conservation check: leapfrog with softening gives <1% energy error over T=5\n\n## Suggested Analyses\n\n1. **Baseline comparison:** Simple analytical approximations (e.g., point-mass gravity, violent relaxation)\n2. **NN architecture survey:** MLP, graph neural network (GNN), Transformer on particle sets\n3. **Generalization test:** Train on 80 simulations, test on 20 held-out; vary N or mass distributions\n4. **Latent space analysis:** Visualize what the model learns about gravitational dynamics\n5. **Fine-tuning:** After training on N=50, fine-tune on N=100 to test transferability\n\n## Hardware Constraints\n\n- Linux container, maximum 4 CPU cores, no GPU\n- All PyTorch/TensorFlow use `device='cpu'`\n- Simulation generation: ~100 \u00d7 500 steps \u00d7 50 particles \u2014 should complete in < 2 minutes\n- Model training: must converge within timeout limits\n\n## Notes\n\n- No periodic boundary conditions (isolated system)\n- Gravitational softening eps = 0.01 prevents close-encounter singularities\n- Energy error < 1e-6 per simulation (leapfrog is symplectic)\n- Initial conditions are reproducible via fixed random seed per run",
+    "role": "assistant"
+  },
+  {
+    "content": "",
+    "name": "control_starter",
+    "tool_calls": [
+      {
+        "id": "4786",
+        "function": {
+          "arguments": "{}",
+          "name": "record_status_starter"
+        },
+        "type": "function",
+        "thought_signature": "EkUKQwG+Pvb7iRyg4ctIagNs1hJa9SzC1Tcn+5Y4uv4w7RS3Qr5RcuTmVGf6sigCwci9IJCseH0ETdCsXJGJpTueWtxam9A="
+      }
+    ],
+    "role": "assistant"
+  },
+  {
+    "content": "\n**Step number:** 2 out of 6.\n\n**Sub-task:** GNN Architecture Design and Unit Testing\n\n**Agent in charge of sub-task:** `engineer`\n\n**Instructions:**\n\n- Implement the permutation-invariant Interaction Network as a standalone Python module in the codebase folder.\n- Define the edge function phi(r_i, r_j, epsilon) with fixed epsilon=0.01.\n- Implement a unit test (forward pass on 3 particles) to verify Newton's Third Law (f_ij = -f_ji) by checking that the sum of pairwise forces is numerically zero.\n- Save the architecture definition for use in subsequent steps.\n\n**Status:** in progress \u23f3\n",
+    "tool_responses": [
+      {
+        "tool_call_id": "4786",
+        "role": "tool",
+        "content": "\n**Step number:** 2 out of 6.\n\n**Sub-task:** GNN Architecture Design and Unit Testing\n\n**Agent in charge of sub-task:** `engineer`\n\n**Instructions:**\n\n- Implement the permutation-invariant Interaction Network as a standalone Python module in the codebase folder.\n- Define the edge function phi(r_i, r_j, epsilon) with fixed epsilon=0.01.\n- Implement a unit test (forward pass on 3 particles) to verify Newton's Third Law (f_ij = -f_ji) by checking that the sum of pairwise forces is numerically zero.\n- Save the architecture definition for use in subsequent steps.\n\n**Status:** in progress \u23f3\n"
+      }
+    ],
+    "name": "_Group_Tool_Executor",
+    "role": "tool"
+  },
+  {
+    "content": "**Code Explanation:**\n\nThe code defines a permutation-invariant Graph Neural Network (GNN), specifically an `InteractionNetwork`, designed to learn the gravitational acceleration field of an N-body system. \n\nKey features of the implementation:\n1. **Edge Function (`phi`)**: Computes the interaction features between pairs of particles. It takes the positions of particles $i$ and $j$, and the softening parameter $\\epsilon=0.01$. To embed physical priors, the input to the Multi-Layer Perceptron (MLP) includes the relative position vector ($dx$), the squared distance with softening ($d_{sq}$), and the exact physical gravity force prior ($dx / d_{sq}^{1.5}$).\n2. **Newton's Third Law Enforcement**: The network guarantees that the force exerted by particle $j$ on particle $i$ is exactly equal and opposite to the force exerted by $i$ on $j$ ($F_{ij} = -F_{ji}$). This is achieved by computing the edge features $h_{ij}$ for all pairs, and then anti-symmetrizing them: $F_{ij} = \\frac{1}{2}(h_{ij} - h_{ji})$.\n3. **Acceleration Computation**: The total acceleration on each particle is computed by summing the pairwise forces $F_{ij}$ over all neighbors $j \\neq i$. Self-interactions are explicitly masked out.\n4. **Unit Test**: A standalone unit test `test_newtons_third_law` performs a forward pass on a 3-particle system and verifies that the sum of all pairwise forces (and thus the total acceleration) is numerically zero, confirming the conservation of linear momentum.\n\n**Python Code:**\n\n```python\nimport torch\nimport torch.nn as nn\n\nclass InteractionNetwork(nn.Module):\n    \"\"\"\n    Permutation-invariant Interaction Network for N-body dynamics.\n    Models the pairwise forces between particles and aggregates them to compute accelerations.\n    Enforces Newton's Third Law (f_ij = -f_ji) by anti-symmetrizing the edge function outputs.\n    \"\"\"\n    def __init__(self, hidden_dim=64, epsilon=0.01):\n        \"\"\"\n        Initializes the Interaction Network.\n        \n        Args:\n            hidden_dim (int): Dimension of the hidden layers in the edge MLP.\n            epsilon (float): Gravitational softening parameter to prevent singularities.\n        \"\"\"\n        super().__init__()\n        self.epsilon = epsilon\n        \n        # Input features to the edge MLP:\n        # dx (3): relative position (r_j - r_i)\n        # f_phys (3): physical gravity force prior (dx / (d_sq^1.5))\n        # d_sq (1): squared distance with softening (||dx||^2 + epsilon^2)\n        # Total input dimension = 3 + 3 + 1 = 7\n        self.edge_mlp = nn.Sequential(\n            nn.Linear(7, hidden_dim),\n            nn.ReLU(),\n            nn.Linear(hidden_dim, hidden_dim),\n            nn.ReLU(),\n            nn.Linear(hidden_dim, 3)\n        )\n        \n    def phi(self, r_i, r_j, epsilon=0.01):\n        \"\"\"\n        Edge function computing the interaction features from particle j to particle i.\n        \n        Args:\n            r_i (torch.Tensor): Positions of particles i, shape (..., 3)\n            r_j (torch.Tensor): Positions of particles j, shape (..., 3)\n            epsilon (float): Softening parameter.\n            \n        Returns:\n            torch.Tensor: Edge features, shape (..., 3)\n        \"\"\"\n        dx = r_j - r_i\n        d_sq = torch.sum(dx**2, dim=-1, keepdim=True) + epsilon**2\n        f_phys = dx / (d_sq ** 1.5)\n        \n        edge_inputs = torch.cat([dx, f_phys, d_sq], dim=-1)\n        return self.edge_mlp(edge_inputs)\n\n    def forward(self, pos):\n        \"\"\"\n        Forward pass to compute the total acceleration on each particle.\n        \n        Args:\n            pos (torch.Tensor): Particle positions, shape (B, N, 3) or (N, 3)\n            \n        Returns:\n            torch.Tensor: Particle accelerations, shape (B, N, 3) or (N, 3)\n        \"\"\"\n        has_batch = pos.dim() == 3\n        if not has_batch:\n            pos = pos.unsqueeze(0)\n            \n        B, N, _ = pos.shape\n        \n        # Create pairwise combinations\n        # pos_i shape: (B, N, 1, 3), pos_j shape: (B, 1, N, 3)\n        pos_i = pos.unsqueeze(2)\n        pos_j = pos.unsqueeze(1)\n        \n        # Compute edge features h_ij for all pairs (i, j)\n        h_ij = self.phi(pos_i, pos_j, self.epsilon)\n        \n        # Compute h_ji by transposing the node dimensions\n        h_ji = h_ij.transpose(1, 2)\n        \n        # Enforce Newton's Third Law: F_ij = -F_ji\n        F_ij = 0.5 * (h_ij - h_ji)\n        \n        # Mask out self-interactions (diagonal elements where i == j)\n        eye = torch.eye(N, dtype=torch.bool, device=pos.device)\n        F_ij = F_ij.masked_fill(eye.unsqueeze(0).unsqueeze(-1), 0.0)\n        \n        # Aggregate forces to compute total acceleration (since mass = 1)\n        acc = torch.sum(F_ij, dim=2)\n        \n        if not has_batch:\n            acc = acc.squeeze(0)\n            \n        return acc\n\ndef test_newtons_third_law():\n    \"\"\"\n    Unit test to verify that the InteractionNetwork enforces Newton's Third Law.\n    It performs a forward pass on 3 particles and checks if the sum of pairwise forces\n    (and thus the total acceleration) is numerically zero.\n    \"\"\"\n    # Initialize the model\n    model = InteractionNetwork(hidden_dim=32, epsilon=0.01)\n    model.eval()\n    \n    # Create random positions for 3 particles\n    torch.manual_seed(42)\n    pos = torch.randn(3, 3)\n    \n    # Forward pass to get accelerations\n    acc = model(pos)\n    \n    # Sum of accelerations (forces)\n    total_force = torch.sum(acc, dim=0)\n    \n    print(\"--- Unit Test: Newton's Third Law ---\")\n    print(\"Particle Positions:\\n\" + str(pos.detach().numpy()))\n    print(\"Predicted Accelerations (Forces):\\n\" + str(acc.detach().numpy()))\n    print(\"Total Force (Sum of Accelerations):\\n\" + str(total_force.detach().numpy()))\n    \n    # Check if the total force is numerically zero\n    is_zero = torch.allclose(total_force, torch.zeros_like(total_force), atol=1e-6)\n    if is_zero:\n        print(\"SUCCESS: Newton's Third Law is verified. The sum of pairwise forces is numerically zero.\")\n    else:\n        print(\"FAILURE: Newton's Third Law is violated!\")\n        \n    assert is_zero, \"Newton's Third Law violated!\"\n\nif __name__ == '__main__':\n    test_newtons_third_law()\n```",
+    "name": "engineer",
+    "role": "user"
+  },
+  {
+    "content": "**Code Explanation:**\n\nThe code defines a permutation-invariant Graph Neural Network (GNN), specifically an `InteractionNetwork`, designed to learn the gravitational acceleration field of an N-body system. Key features of the implementation: 1. Edge Function (`phi`): Computes the interaction features between pairs of particles. It takes the positions of particles $i$ and $j$, and the softening parameter $\\epsilon=0.01$. To embed physical priors, the input to the Multi-Layer Perceptron (MLP) includes the relative position vector ($dx$), the squared distance with softening ($d_{sq}$), and the exact physical gravity force prior ($dx / d_{sq}^{1.5}$). 2. Newton's Third Law Enforcement: The network guarantees that the force exerted by particle $j$ on particle $i$ is exactly equal and opposite to the force exerted by $i$ on $j$ ($F_{ij} = -F_{ji}$). This is achieved by computing the edge features $h_{ij}$ for all pairs, and then anti-symmetrizing them: $F_{ij} = \\frac{1}{2}(h_{ij} - h_{ji})$. 3. Acceleration Computation: The total acceleration on each particle is computed by summing the pairwise forces $F_{ij}$ over all neighbors $j \\neq i$. Self-interactions are explicitly masked out. 4. Unit Test: A standalone unit test `test_newtons_third_law` performs a forward pass on a 3-particle system and verifies that the sum of all pairwise forces (and thus the total acceleration) is numerically zero, confirming the conservation of linear momentum.\n\n**Python Code:**\n\n```python\n# filename: codebase/step_2.py\nimport sys\nimport os\nsys.path.insert(0, os.path.abspath(\"codebase\"))\nimport torch\nimport torch.nn as nn\n\nclass InteractionNetwork(nn.Module):\n    def __init__(self, hidden_dim=64, epsilon=0.01):\n        super().__init__()\n        self.epsilon = epsilon\n        self.edge_mlp = nn.Sequential(\n            nn.Linear(7, hidden_dim),\n            nn.ReLU(),\n            nn.Linear(hidden_dim, hidden_dim),\n            nn.ReLU(),\n            nn.Linear(hidden_dim, 3)\n        )\n        \n    def phi(self, r_i, r_j, epsilon=0.01):\n        dx = r_j - r_i\n        d_sq = torch.sum(dx**2, dim=-1, keepdim=True) + epsilon**2\n        f_phys = dx / (d_sq ** 1.5)\n        edge_inputs = torch.cat([dx, f_phys, d_sq], dim=-1)\n        return self.edge_mlp(edge_inputs)\n\n    def forward(self, pos):\n        has_batch = pos.dim() == 3\n        if not has_batch:\n            pos = pos.unsqueeze(0)\n        B, N, _ = pos.shape\n        pos_i = pos.unsqueeze(2)\n        pos_j = pos.unsqueeze(1)\n        h_ij = self.phi(pos_i, pos_j, self.epsilon)\n        h_ji = h_ij.transpose(1, 2)\n        F_ij = 0.5 * (h_ij - h_ji)\n        eye = torch.eye(N, dtype=torch.bool, device=pos.device)\n        F_ij = F_ij.masked_fill(eye.unsqueeze(0).unsqueeze(-1), 0.0)\n        acc = torch.sum(F_ij, dim=2)\n        if not has_batch:\n            acc = acc.squeeze(0)\n        return acc\n\ndef test_newtons_third_law():\n    model = InteractionNetwork(hidden_dim=32, epsilon=0.01)\n    model.eval()\n    torch.manual_seed(42)\n    pos = torch.randn(3, 3)\n    acc = model(pos)\n    total_force = torch.sum(acc, dim=0)\n    print(\"--- Unit Test: Newton's Third Law ---\")\n    print(\"Particle Positions:\\n\" + str(pos.detach().numpy()))\n    print(\"Predicted Accelerations (Forces):\\n\" + str(acc.detach().numpy()))\n    print(\"Total Force (Sum of Accelerations):\\n\" + str(total_force.detach().numpy()))\n    is_zero = torch.allclose(total_force, torch.zeros_like(total_force), atol=1e-6)\n    if is_zero:\n        print(\"SUCCESS: Newton's Third Law is verified. The sum of pairwise forces is numerically zero.\")\n    else:\n        print(\"FAILURE: Newton's Third Law is violated!\")\n    assert is_zero, \"Newton's Third Law violated!\"\n\nif __name__ == '__main__':\n    test_newtons_third_law()\n```",
+    "name": "engineer_response_evaluator",
+    "role": "user"
+  },
+  {
+    "content": "Execution results:\n\nExecution output: \n--- Unit Test: Newton's Third Law ---\nParticle Positions:\n[[ 0.33669037  0.1288094   0.23446237]\n [ 0.23033303 -1.1228564  -0.18632829]\n [ 2.2082014  -0.63799703  0.46165723]]\nPredicted Accelerations (Forces):\n[[ 0.00963326  0.02100769  0.02545793]\n [ 0.14687222 -0.07919809 -0.05582523]\n [-0.15650548  0.05819041  0.0303673 ]]\nTotal Force (Sum of Accelerations):\n[ 0.0000000e+00  0.0000000e+00 -1.8626451e-09]\nSUCCESS: Newton's Third Law is verified. The sum of pairwise forces is numerically zero.\n",
+    "name": "executor",
+    "role": "user"
+  },
+  {
+    "content": "Code execution recorded.\n\nExecution output:\nExecution results:\n\nExecution output: \n--- Unit Test: Newton's Third Law ---\nParticle Positions:\n[[ 0.33669037  0.1288094   0.23446237]\n [ 0.23033303 -1.1228564  -0.18632829]\n [ 2.2082014  -0.63799703  0.46165723]]\nPredicted Accelerations (Forces):\n[[ 0.00963326  0.02100769  0.02545793]\n [ 0.14687222 -0.07919809 -0.05582523]\n [-0.15650548  0.05819041  0.0303673 ]]\nTotal Force (Sum of Accelerations):\n[ 0.0000000e+00  0.0000000e+00 -1.8626451e-09]\nSUCCESS: Newton's Third Law is verified. The sum of pairwise forces is numerically zero.\n",
+    "name": "execution_recorder",
+    "role": "user"
+  },
+  {
+    "content": "",
+    "name": "executor_response_evaluator",
+    "tool_calls": [
+      {
+        "id": "4965",
+        "function": {
+          "arguments": "{\"next_agent_suggestion\": \"controller\", \"execution_status\": \"success\"}",
+          "name": "post_execution_transfer"
+        },
+        "type": "function",
+        "thought_signature": "EjQKMgG+Pvb79bS6FnlOu7uWx++mIgX2L4gFOJXwSBmwfjFwxqy7zi+jgJtVBY4JEP3JUdeR"
+      }
+    ],
+    "role": "assistant"
+  },
+  {
+    "content": "Code execution status: success. Transfer to controller to evaluate step progress.\n\nxxxxxxxxxxxxxxxxxxxxxxxxxx\n\nWorkflow status:\n\nPlan step number: 2\n\nAgent for sub-task (might be different from the next agent suggestion for debugging): engineer\n\nStep status (before execution): in progress\n\nCode status: success\n\nxxxxxxxxxxxxxxxxxxxxxxxxxx\n\n",
+    "tool_responses": [
+      {
+        "tool_call_id": "4965",
+        "role": "tool",
+        "content": "Code execution status: success. Transfer to controller to evaluate step progress.\n\nxxxxxxxxxxxxxxxxxxxxxxxxxx\n\nWorkflow status:\n\nPlan step number: 2\n\nAgent for sub-task (might be different from the next agent suggestion for debugging): engineer\n\nStep status (before execution): in progress\n\nCode status: success\n\nxxxxxxxxxxxxxxxxxxxxxxxxxx\n\n"
+      }
+    ],
+    "name": "_Group_Tool_Executor",
+    "role": "tool"
+  },
+  {
+    "content": "",
+    "name": "controller",
+    "tool_calls": [
+      {
+        "id": "8248",
+        "function": {
+          "arguments": "{\"step_status\": \"completed\"}",
+          "name": "record_status"
+        },
+        "type": "function",
+        "thought_signature": "EjQKMgG+Pvb7bt6bxiC6WsT+wYZ7HCMQSdvw4nmSPRmZIkqInfxzyLg4d1FpgzdKLXA7I+A4"
+      }
+    ],
+    "role": "assistant"
+  },
+  {
+    "content": "\n**Step number:** 2 out of 6.\n\n**Sub-task:** GNN Architecture Design and Unit Testing\n\n**Agent in charge of sub-task:** `engineer`\n\n**Instructions:**\n\n- Implement the permutation-invariant Interaction Network as a standalone Python module in the codebase folder.\n- Define the edge function phi(r_i, r_j, epsilon) with fixed epsilon=0.01.\n- Implement a unit test (forward pass on 3 particles) to verify Newton's Third Law (f_ij = -f_ji) by checking that the sum of pairwise forces is numerically zero.\n- Save the architecture definition for use in subsequent steps.\n\n**Step status:** completed \u2705\n\n**Code status:** success\n\n**Step iteration:** 0/10\n        ",
+    "tool_responses": [
+      {
+        "tool_call_id": "8248",
+        "role": "tool",
+        "content": "\n**Step number:** 2 out of 6.\n\n**Sub-task:** GNN Architecture Design and Unit Testing\n\n**Agent in charge of sub-task:** `engineer`\n\n**Instructions:**\n\n- Implement the permutation-invariant Interaction Network as a standalone Python module in the codebase folder.\n- Define the edge function phi(r_i, r_j, epsilon) with fixed epsilon=0.01.\n- Implement a unit test (forward pass on 3 particles) to verify Newton's Third Law (f_ij = -f_ji) by checking that the sum of pairwise forces is numerically zero.\n- Save the architecture definition for use in subsequent steps.\n\n**Step status:** completed \u2705\n\n**Code status:** success\n\n**Step iteration:** 0/10\n        "
+      }
+    ],
+    "name": "_Group_Tool_Executor",
+    "role": "tool"
+  },
+  {
+    "content": "TERMINATE",
+    "name": "terminator",
+    "role": "user"
+  }
+]
