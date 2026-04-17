@@ -1,0 +1,243 @@
+
+###### PROMPT BEGINS ########
+Human: You are provided with:
+- a description of the data
+- an idea
+- research plan to carry out the idea.
+
+Your task is to provide suggestions on how to improve the plan.
+Take into account and potential feedback (if any).
+If the plan is already good enough, do not give suggestions to improve it. If this is not first iteration, you will also be provided with the previous research plan along with some feedback on it. If this is the case, take into account the feedback provided when designing the new research plan. It is good to have a detailed plan, but not to have an overly complicated plan. If you dont have suggestions, just say that you dont have further suggestions. The idea should remain the same. No need to add code to the research plan, as another agent will write code given the research plan.
+
+Data description:
+# N-body Simulation Dataset for ML Emulation
+
+## Overview
+
+This project investigates whether a neural network can learn to predict the final state of an N-body gravitational simulation given only the initial conditions. We generate 100 controlled N-body simulations with identical particle mass distribution, then train a model to map initial phase-space configurations to final positions and velocities.
+
+## Physics Model
+
+**Gravitational N-body problem** — N particles interact only through Newtonian gravity:
+
+    d²r_i/dt² = G * sum_{j≠i} m_j * (r_j - r_i) / |r_j - r_i|³
+
+All particles have equal mass m = 1 (normalized units). No softening; gravitational softening eps = 0.01 (normalized L) to prevent singularities; no cosmological expansion, no external potential.
+
+## Initial Conditions
+
+Each of the 100 simulations is initialized as a **virialized Plummer sphere**:
+
+1. Draw N particle positions from a Plummer distribution with scale radius b = 1
+2. Draw velocities from the isotropic Wilson criterion: v_esc² = 2 * (1 + r/r_a)⁻¹ where r_a = b/5
+3. Rescale velocities to exactly virial equilibrium: total KE = 0.5 * |total PE|
+4. Center of mass is translated to origin; total momentum is zeroed
+
+**Number of particles per simulation:** N = 50
+**Scale:** G = M = 1 (geometric units), b = 1
+
+## Integrator
+
+**Leapfrog (kick-drift-kick) scheme** with fixed timestep:
+
+    v_{n+1/2} = v_n + (dt/2) * a(r_n)
+    r_{n+1}  = r_n + dt * v_{n+1/2}
+    v_{n+1}  = v_{n+1/2} + (dt/2) * a(r_{n+1})
+
+**Timestep:** dt = 0.01 (normalized units)
+**Number of steps:** 500 → total integration time T = 5.0
+
+## Dataset Files
+
+All files are NumPy `.npy` structured arrays saved at absolute paths:
+
+### `/home/node/work/projects/nbody_emulator/data/ic_final.npy`
+**Shape:** (100, N, 13) — 100 simulations × 50 particles × 13 features
+
+| Feature index | Field name    | Unit | Description                             |
+|---------------|---------------|------|-----------------------------------------|
+| 0–2           | x, y, z       | L    | 3D position (scale b = 1)               |
+| 3–5           | vx, vy, vz    | L/T  | 3D velocity                             |
+| 6             | mass          | M    | Particle mass (= 1.0 for all)          |
+| 7             | kinetic_E     | M L²/T² | Instantaneous KE = 0.5 * v²          |
+| 8             | potential_E   | M L²/T² | Instantaneous PE (pairwise sum)        |
+| 9             | total_E       | M L²/T² | KE + PE                             |
+| 10            | r_norm        | L    | Distance from origin                    |
+| 11            | v_norm        | L/T  | Speed                                   |
+| 12            | time          | T    | Snapshot time (0 for IC, T=5 for final)|
+
+The array stores **both initial conditions (time=0) and final state (time=T)** for each simulation run, identifiable by the `time` field.
+
+### `/home/node/work/projects/nbody_emulator/data/sim_metadata.npy`
+**Shape:** (100, 7)
+
+| Col | Field          | Unit | Description                          |
+|-----|----------------|------|--------------------------------------|
+| 0   | run_id         | —    | Simulation ID (0–99)                 |
+| 1   | n_particles    | —    | N = 50 (all runs)                    |
+| 2   | initial_KE     | M L²/T² | Total KE at t=0                    |
+| 3   | initial_PE     | M L²/T² | Total PE at t=0                    |
+| 4   | final_KE       | M L²/T² | Total KE at t=T                    |
+| 5   | final_PE       | M L²/T² | Total PE at t=T                    |
+| 6   | energy_error   | M L²/T² | |(E_final - E_initial)/E_initial| |
+
+## Input/Output for ML
+
+**Input (X):** Initial conditions — positions (x,y,z) and velocities (vx,vy,vz) for all 50 particles → 6 × 50 = 300 features per simulation.
+
+**Output (y):** Final state — final positions (x,y,z) and velocities (vx,vy,vz) for all 50 particles → 6 × 50 = 300 targets per simulation.
+
+## Ground Truth Availability
+
+The leapfrog integrator used to generate the data is deterministic. The ground truth for any simulation is uniquely determined by the initial conditions and the integration scheme. This enables:
+- Perfect validation: compare model predictions to true final states
+- Mean squared error (MSE) on positions and velocities as primary metrics
+- Energy conservation check: leapfrog with softening gives <1% energy error over T=5
+
+## Suggested Analyses
+
+1. **Baseline comparison:** Simple analytical approximations (e.g., point-mass gravity, violent relaxation)
+2. **NN architecture survey:** MLP, graph neural network (GNN), Transformer on particle sets
+3. **Generalization test:** Train on 80 simulations, test on 20 held-out; vary N or mass distributions
+4. **Latent space analysis:** Visualize what the model learns about gravitational dynamics
+5. **Fine-tuning:** After training on N=50, fine-tune on N=100 to test transferability
+
+## Hardware Constraints
+
+- Linux container, maximum 4 CPU cores, no GPU
+- All PyTorch/TensorFlow use `device='cpu'`
+- Simulation generation: ~100 × 500 steps × 50 particles — should complete in < 2 minutes
+- Model training: must converge within timeout limits
+
+## Notes
+
+- No periodic boundary conditions (isolated system)
+- Gravitational softening eps = 0.01 prevents close-encounter singularities
+- Energy error < 1e-6 per simulation (leapfrog is symplectic)
+- Initial conditions are reproducible via fixed random seed per run
+
+Idea:
+**Title: Symplectic Neural ODE for Virialized N-body Dynamics**
+
+The objective is to learn the underlying vector field $\dot{z} = f(z, \theta)$ of the N-body system by training a Neural Ordinary Differential Equation (Neural ODE) on intermediate trajectory snapshots. To bypass the $t=0 \to t=5$ regression limitation, the leapfrog integrator will be used to generate 10 intermediate time-steps per simulation, providing the necessary gradient supervision to capture the Hamiltonian flow of the Plummer sphere. The architecture will employ a permutation-invariant interaction network to parameterize the gravitational acceleration function, explicitly incorporating the $\epsilon = 0.01$ softening kernel as a fixed physical prior in the force calculation. By optimizing the model to minimize the trajectory reconstruction error across these intervals, the network will learn the continuous dynamics rather than a static mapping. The training will be constrained by the `total_E` metadata, using the conservation of the Hamiltonian as a regularization term to ensure the learned flow mimics the symplectic nature of the integrator. This approach transforms the final-state prediction task into a robust dynamical emulation, significantly reducing overfitting by forcing the model to adhere to the physical laws governing the 100-simulation set.
+
+Research plan:
+1. **Hamiltonian Neural Network (HNN) Architecture**:
+   - Construct a GNN-based HNN that predicts the scalar potential energy $U(r)$ and kinetic energy $T(v)$ of the system.
+   - Parameterize the potential $U$ as a sum of pairwise interactions $U = \sum_{i<j} \phi(|r_i - r_j|)$, where $\phi$ is a shared MLP that takes the inter-particle distance as input.
+   - Use automatic differentiation to derive the forces: $\dot{p}_i = -\nabla_{r_i} U$ and $\dot{q}_i = \nabla_{p_i} T$.
+   - Ensure permutation invariance by using a sum-pooling layer over all particle pairs for the potential energy calculation.
+
+2. **Leapfrog-Integrated Training Loop**:
+   - Replace the standard ODE solver with a custom Leapfrog integration step within the training loop.
+   - For each training step, perform a "kick-drift-kick" update using the forces derived from the HNN.
+   - Ensure the training loop uses the same fixed timestep $dt=0.01$ as the ground-truth simulation to ensure the model learns the vector field consistent with the Leapfrog discretization.
+
+3. **Scale-Invariant Normalization**:
+   - Normalize all input positions $r$ and velocities $v$ by the mean inter-particle distance and the virial velocity scale of the specific simulation run.
+   - Scale the message-passing weights in the GNN by $1/N$ to ensure the learned potential energy surface remains stable when transitioning between $N=50$ and $N=100$ particles.
+
+4. **Curriculum Learning Strategy**:
+   - Implement a two-stage training curriculum.
+   - Stage 1: Train the HNN on "halo-dominated" snapshots where particles are at larger radii ($r > 0.5b$) to learn the coarse-grained gravitational potential.
+   - Stage 2: Gradually introduce snapshots containing the high-density core ($r < 0.5b$) to refine the model's ability to handle close-encounter dynamics and the softening kernel $\epsilon=0.01$.
+
+5. **Physical Prior Integration**:
+   - Explicitly incorporate the gravitational softening $\epsilon=0.01$ into the pairwise distance calculation within the HNN: $d_{ij} = \sqrt{|r_i - r_j|^2 + \epsilon^2}$.
+   - This ensures the model learns the residual potential correction rather than the entire Newtonian potential, reducing the learning burden and improving physical consistency.
+
+6. **Training and Optimization**:
+   - Train the model using the MSE between the predicted trajectory snapshots and the ground-truth leapfrog snapshots.
+   - Since the HNN structure enforces Hamiltonian dynamics, the total energy $H = T + U$ is conserved by construction, eliminating the need for a global energy penalty term.
+   - Use a standard optimizer (e.g., Adam) with a learning rate scheduler to ensure convergence within the CPU-only hardware constraints.
+
+7. **Time-Reversibility and Stability Validation**:
+   - Evaluate the learned model by performing forward integration from $t=0$ to $t=5.0$ and backward integration from $t=5.0$ to $t=0$.
+   - Quantify the reversibility error as the Euclidean distance between the original initial conditions and the recovered state.
+   - Monitor the energy drift over the full $T=5.0$ integration to confirm that the HNN maintains the symplectic structure of the system.
+
+8. **Generalization and Performance Assessment**:
+   - Test the model on held-out simulations with $N=50$ to assess trajectory reconstruction accuracy.
+   - Perform zero-shot transfer tests on $N=25$ and $N=100$ simulations to evaluate the robustness of the scale-invariant message passing.
+   - Aggregate the final MSE on positions and velocities and compare the results against the baseline analytical point-mass gravity model.
+
+Previous research plan:
+1. **Dataset Preparation and Snapshot Extraction**:
+   - Generate 100 simulations using the leapfrog integrator.
+   - Extract 10 consistent intermediate snapshots ($t \in \{0.5, 1.0, \dots, 5.0\}$) for each simulation.
+   - Compute ground-truth acceleration $a_i$ for each particle at these snapshots to serve as target supervision.
+   - Partition the 100 simulations into training (80), validation (10), and testing (10) sets.
+
+2. **Residual GNN Architecture Implementation**:
+   - Construct a permutation-invariant Interaction Network where the model predicts residual acceleration $\Delta a_i$.
+   - Define total predicted acceleration as $\hat{a}_i = f_{\text{phys}}(r, v, \epsilon=0.01) + \text{MLP}_{\theta}(r, v)$.
+   - Enforce Newton’s Third Law by parameterizing edge interactions $f_{ij}$ and ensuring anti-symmetry ($f_{ij} = -f_{ji}$).
+   - Keep the MLP architecture lightweight (2-3 layers) to ensure convergence within CPU-only hardware constraints.
+
+3. **Neural ODE Training Protocol**:
+   - Train the model using a Neural ODE framework where the hidden state $z$ represents $(r, v)$.
+   - Use an adaptive-step solver (e.g., `dopri5`) during training to ensure accurate gradient flow.
+   - Define the loss function as $\mathcal{L} = \text{MSE}(\hat{a}, a) + \lambda (E_{\text{initial}} - E_{\text{predicted}})^2$, calculated at each intermediate snapshot to enforce energy conservation throughout the trajectory.
+   - Tune $\lambda$ to balance acceleration accuracy with the energy constraint, preventing "stiff" training.
+
+4. **Time-Reversibility Validation**:
+   - Verify the symmetry of the learned vector field by integrating forward from $t=0$ to $t=5.0$ using the leapfrog integrator.
+   - Perform backward integration from $t=5.0$ to $t=0$ by negating the time step ($dt \to -dt$) and negating the velocity vectors ($v \to -v$) at the start of the backward pass.
+   - Quantify the reversibility error as the Euclidean distance between the original initial conditions and the recovered state.
+
+5. **Density-Dependent Error Analysis**:
+   - On the final test set, compute the local particle density for each snapshot using the distance to the 5th nearest neighbor.
+   - Decompose the acceleration MSE into "core" (high-density) and "halo" (low-density) bins to evaluate if the model struggles with close-encounter dynamics.
+
+6. **Extended Rollout and Stability Testing**:
+   - Extend the integration rollout to $T=10.0$ for the test set using the fixed-step leapfrog integrator.
+   - Monitor total energy drift and trajectory divergence compared to ground-truth leapfrog integration to distinguish between physical emulation and manifold overfitting.
+
+7. **N-Scaling Generalization Test**:
+   - Evaluate the trained $N=50$ model on new test sets with $N=25$ and $N=100$ particles.
+   - Assess model performance focusing on energy conservation drift and qualitative stability to determine transferability across different system densities.
+
+8. **Final Performance Synthesis**:
+   - Aggregate results from residual learning, time-reversibility, and stability tests.
+   - Document the model's performance in terms of trajectory reconstruction error and physical consistency to provide a final assessment of the Neural ODE's ability to emulate the symplectic N-body system.
+
+Feedback on previous research plan:
+The current analysis demonstrates a sophisticated attempt to apply Neural ODEs to N-body dynamics, but it suffers from a fundamental mismatch between the training objective (short-horizon snapshot fitting) and the desired physical behavior (long-term symplectic integration).
+
+**Critical Weaknesses:**
+1. **Integration Manifold Mismatch:** The most significant methodological flaw is the discrepancy between the training solver (RK4) and the evaluation solver (Leapfrog). Neural ODEs are highly sensitive to the specific discretization scheme used during training. By training on RK4 and testing on Leapfrog, you have essentially forced the model to learn the truncation errors of RK4, which are incompatible with the symplectic nature of Leapfrog. This explains the catastrophic failure in time-reversibility and energy conservation.
+2. **Over-regularization vs. Expressivity:** The energy regularization ($\lambda=0.1$) is a "band-aid" that forces the model to satisfy a global constraint while the local vector field remains unphysical. The fact that the model fails time-reversibility proves that the learned field is not Hamiltonian.
+3. **Density-Dependent Bottleneck:** The error analysis correctly identifies that the core is the failure point. However, the current architecture treats all interactions with the same MLP capacity. In N-body systems, the "residual" is not just noise; it is the correction for the softening kernel and the discretization error.
+
+**Actionable Recommendations:**
+1. **Align Training and Evaluation:** You must train the Neural ODE using the same Leapfrog integrator used for evaluation. Replace the `dopri5` solver with a custom Leapfrog step function within the training loop. This ensures the model learns the vector field specifically optimized for the symplectic manifold of the Leapfrog integrator.
+2. **Abandon Global Energy Penalty:** Instead of a global $\lambda$ penalty, enforce the Hamiltonian structure directly. Since you are using a GNN, parameterize the model as a **Hamiltonian Neural Network (HNN)**. Instead of predicting acceleration $\Delta a$, have the network predict the scalar Potential $U(r)$ and Kinetic $T(v)$ energies. The forces are then derived via automatic differentiation ($\dot{p} = -\nabla_q H, \dot{q} = \nabla_p H$). This guarantees energy conservation by construction, rather than by penalty.
+3. **Scale-Invariant Message Passing:** To address the $N=100$ failure, normalize the input to the GNN by the local density or the mean inter-particle distance. The current GNN is likely over-fitting to the absolute magnitude of forces at $N=50$. By using relative distances and scaling the message-passing weights by $1/N$, you can improve transferability.
+4. **Curriculum Learning:** Since the core is the bottleneck, implement a training curriculum. Start by training on "halo-only" dynamics (low density), then gradually introduce snapshots with higher core density. This prevents the model from being overwhelmed by high-gradient "stiff" samples early in the training process.
+
+**Future Insight:**
+The goal should not be to "emulate" the trajectory, but to "learn the Hamiltonian." If the model learns the correct potential energy surface, the trajectory will emerge naturally as a consequence of the physics, rather than as a result of brute-force regression. Focus on the HNN approach; it is simpler, more interpretable, and physically robust.
+
+
+Respond in this format:
+
+\\begin{SUGGESTIONS}
+<SUGGESTIONS>
+\\end{SUGGESTIONS}
+
+In <SUGGESTIONS> put the suggestions to improve the plan.
+
+###### PROMPT ENDS ########
+
+\begin{SUGGESTIONS}
+1. **Refine the HNN Force Derivation:** In step 1, ensure the HNN architecture explicitly accounts for the kinetic energy $T(v) = \sum \frac{1}{2} m_i v_i^2$. Since mass is constant ($m=1$), the kinetic energy is purely a function of velocity. Clarify that the HNN should focus on learning the interaction potential $U(r)$ and that the Hamiltonian $H = T + U$ is the quantity being conserved.
+
+2. **Clarify the Leapfrog Integration Step:** In step 2, explicitly state that the "kick-drift-kick" update will use the forces derived from the HNN's potential $U(r)$ via `torch.autograd.grad`. This ensures the training loop is fully differentiable and consistent with the symplectic integrator.
+
+3. **Address the "Softening" Implementation:** In step 5, ensure the softening $\epsilon=0.01$ is applied to the pairwise distance calculation *before* passing the distance to the MLP that parameterizes the potential $\phi$. This allows the MLP to learn the "correction" to the Newtonian potential rather than the singularity itself, which is a more efficient learning task.
+
+4. **Validation Metric Adjustment:** In step 7, add a specific check for the "Symplectic Error." Beyond Euclidean distance, calculate the **Poisson bracket** or the **Hamiltonian drift** $\Delta H = |H(t) - H(0)|$ over the integration. Since the HNN is designed to conserve $H$, this is a more rigorous test of the model's physical validity than simple MSE.
+
+5. **Data Efficiency:** Given the constraint of 100 simulations, ensure that the training loop utilizes the intermediate snapshots effectively. Instead of just training on $t=0 \to t=T$, use a "sliding window" approach where the model is trained to predict $t_{n+1}$ from $t_n$ for all available intermediate snapshots. This increases the effective training sample size by a factor of 10.
+\end{SUGGESTIONS}
+
