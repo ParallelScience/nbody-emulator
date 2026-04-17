@@ -1,0 +1,132 @@
+
+###### PROMPT BEGINS ########
+Human: You are a scientific paper classifier. Your task is to determine the most appropriate top-level arXiv archive for the following paper.
+
+**Paper Title:** Symplectic Emulation of N-body Dynamics with Hamiltonian Graph Neural Networks
+
+**Abstract:** Emulating the long-term evolution of N-body gravitational systems is a significant challenge for standard machine learning models, which typically fail to respect fundamental conservation laws, leading to unphysical and unstable trajectory predictions. We address this by developing a Symplectic Neural Ordinary Differential Equation framework designed to learn the underlying conservative vector field governing the dynamics. Our model parameterizes the system's Hamiltonian using a permutation-invariant graph neural network, from which forces are derived via automatic differentiation to ensure they are curl-free. Crucially, we embed a differentiable leapfrog integrator directly into the training loop, which constrains the learned dynamics to be symplectic. Training is performed on trajectory snapshots from simulations of 50-particle virialized Plummer spheres, where a gravitational softening length is incorporated as a fixed physical prior and a curriculum learning strategy is employed to handle the system's multi-scale density. This approach transforms the learning problem from brittle state-to-state regression into the robust emulation of a continuous Hamiltonian flow. By construction, the learned dynamics preserve the geometric structure of the phase space, exhibiting long-term energy stability, time-reversibility, and phase-space volume conservation. The resulting emulator generalizes to systems with different particle counts, demonstrating that explicitly encoding physical symmetries is a more effective path to building robust models for chaotic physical systems than purely minimizing trajectory error.
+
+**Archives:**
+- astro-ph: Astrophysics — cosmology, galaxies, stellar physics, planetary science, high-energy astrophysics, instrumentation
+- cond-mat: Condensed Matter — materials science, superconductivity, quantum gases, soft matter, statistical mechanics
+- cs: Computer Science — AI, machine learning, NLP, computer vision, algorithms, networking, security, software
+- econ: Economics — econometrics, general economics, theoretical economics
+- eess: Electrical Engineering and Systems Science — signal processing, image/video processing, audio/speech, control
+- gr-qc: General Relativity and Quantum Cosmology — gravitational physics, gravitational waves, black holes
+- hep-ex: High Energy Physics - Experiment — particle physics experiments, collider results
+- hep-lat: High Energy Physics - Lattice — lattice field theory, lattice QCD
+- hep-ph: High Energy Physics - Phenomenology — theoretical particle physics connected to experiment
+- hep-th: High Energy Physics - Theory — string theory, quantum field theory, supersymmetry
+- math: Mathematics — algebra, geometry, topology, analysis, probability, number theory, optimization
+- math-ph: Mathematical Physics — mathematical methods for physics problems
+- nlin: Nonlinear Sciences — chaos, pattern formation, solitons, integrable systems, self-organization
+- nucl-ex: Nuclear Experiment — experimental nuclear physics
+- nucl-th: Nuclear Theory — nuclear structure theory, hadron models, neutron stars
+- physics: Physics (General) — classical, computational, fluid dynamics, optics, plasma, applied, biological, chemical physics
+- q-bio: Quantitative Biology — biomolecules, genomics, neuroscience, populations, quantitative methods
+- q-fin: Quantitative Finance — computational finance, portfolio management, risk, pricing, trading
+- quant-ph: Quantum Physics — quantum information, computation, entanglement, foundations, optics
+- stat: Statistics — methodology, applications, machine learning (with statistical grounding), computation
+
+Select the single most appropriate archive for this paper. If the paper spans multiple fields, choose the one where the paper makes its primary contribution.
+
+###### PROMPT ENDS ########
+
+archive='cs' justification='The paper focuses on developing a novel machine learning architecture (Hamiltonian Graph Neural Networks) to solve a computational physics problem, which is a primary contribution to the field of machine learning.'
+###### PROMPT BEGINS ########
+Human: You are a scientific paper classifier. You have already determined that this paper belongs to the **cs** archive on arXiv. Now select the specific subcategory.
+
+**Paper Title:** Symplectic Emulation of N-body Dynamics with Hamiltonian Graph Neural Networks
+
+**Abstract:** Emulating the long-term evolution of N-body gravitational systems is a significant challenge for standard machine learning models, which typically fail to respect fundamental conservation laws, leading to unphysical and unstable trajectory predictions. We address this by developing a Symplectic Neural Ordinary Differential Equation framework designed to learn the underlying conservative vector field governing the dynamics. Our model parameterizes the system's Hamiltonian using a permutation-invariant graph neural network, from which forces are derived via automatic differentiation to ensure they are curl-free. Crucially, we embed a differentiable leapfrog integrator directly into the training loop, which constrains the learned dynamics to be symplectic. Training is performed on trajectory snapshots from simulations of 50-particle virialized Plummer spheres, where a gravitational softening length is incorporated as a fixed physical prior and a curriculum learning strategy is employed to handle the system's multi-scale density. This approach transforms the learning problem from brittle state-to-state regression into the robust emulation of a continuous Hamiltonian flow. By construction, the learned dynamics preserve the geometric structure of the phase space, exhibiting long-term energy stability, time-reversibility, and phase-space volume conservation. The resulting emulator generalizes to systems with different particle counts, demonstrating that explicitly encoding physical symmetries is a more effective path to building robust models for chaotic physical systems than purely minimizing trajectory error.
+
+**Methods (if available):** \subsection{Dataset and simulation setup}
+The training and evaluation data were generated from N-body simulations of 50-particle virialized Plummer spheres. The Plummer model provides a simple, spherically symmetric density profile commonly used to represent star clusters. A total of 100 independent simulations were run using a standard leapfrog integrator with a fixed timestep of $dt=0.01$ for a total duration of $T=5.0$ in simulation units. A gravitational softening length of $\epsilon=0.01$ was used to prevent numerical divergences during close particle encounters. From these simulations, 80 were allocated for training and 20 were held out for testing. To evaluate the model's generalization capabilities, additional test sets were generated for systems with $N=25$ and $N=100$ particles, following the same initialization and integration procedure.
+
+To augment the training data and enforce physical symmetries, each batch of particle coordinates and velocities was subjected to a random 3D rotation and translation before being fed into the network. This ensures the model learns the inherent Galilean invariance of the gravitational N-body problem.
+
+\subsection{Hamiltonian graph neural network architecture}
+Our approach is centered on learning the system's scalar Hamiltonian, $H(q, p)$, rather than directly regressing the vector forces. The Hamiltonian is separated into kinetic and potential energy components, $H(q, p) = T(p) + U(q)$. The kinetic energy is defined analytically as $T(p) = \sum_{i=1}^{N} \frac{p_i^2}{2m_i}$, where we assume unit masses ($m_i=1$) for all particles.
+
+The potential energy, $U(q)$, is parameterized by a permutation-invariant graph neural network (GNN). The GNN models the potential as a sum over pairwise interactions, an architecture well-suited for particle systems. The total potential energy is given by:
+\begin{equation}
+    U(q) = \frac{1}{N} \sum_{i<j} \phi(d_{ij})
+\end{equation}
+where $\phi$ is a shared multi-layer perceptron (MLP) with SiLU activation functions that maps the pairwise distance between particles $i$ and $j$ to a scalar potential. The $1/N$ scaling factor ensures the model's output remains stable across different particle counts.
+
+A key physical prior is incorporated directly into the network architecture by using the softened pairwise distance as the input to the MLP:
+\begin{equation}
+    d_{ij} = \sqrt{\|q_i - q_j\|^2 + \epsilon^2}
+\end{equation}
+where $\epsilon=0.01$ is the same gravitational softening length used in the ground-truth data generation. This provides a strong inductive bias and stabilizes the learning process by avoiding the singularity of the pure Newtonian potential. The forces are then derived from the learned potential using automatic differentiation, which guarantees that the resulting force field is conservative (curl-free):
+\begin{equation}
+    \dot{p}_i = -\frac{\partial H}{\partial q_i} = -\frac{\partial U}{\partial q_i}
+\end{equation}
+
+\subsection{Symplectic integration and training}
+To ensure the learned dynamics preserve the geometric structure of the phase space, we embed a differentiable second-order symplectic integrator directly into the training loop. We use the "kick-drift-kick" formulation of the leapfrog algorithm. A single integration step from time $t_n$ to $t_{n+1}$ with timestep $\Delta t$ proceeds as follows:
+\begin{enumerate}
+    \item \textbf{Kick:} Update momenta by a half-step: $p_{n+1/2} = p_n - \frac{\Delta t}{2} \nabla_q U(q_n)$.
+    \item \textbf{Drift:} Update positions by a full step: $q_{n+1} = q_n + \Delta t \frac{p_{n+1/2}}{m}$.
+    \item \textbf{Kick:} Update momenta by a final half-step: $p_{n+1} = p_{n+1/2} - \frac{\Delta t}{2} \nabla_q U(q_{n+1})$.
+\end{enumerate}
+The entire integration sequence is implemented using differentiable operations, allowing gradients to be backpropagated through time. The model is trained to predict the state at a future time by unrolling this integrator over multiple steps. Specifically, we use a sliding window approach, minimizing the Mean Squared Error (MSE) between the predicted state at $t_n + 50 \cdot dt$ and the ground-truth state, starting from the state at $t_n$.
+
+To manage the multi-scale nature of the Plummer sphere, we employed a two-stage curriculum learning strategy. In the first stage, the loss was masked to include only particles outside the dense core (radial position $r > 0.5b$, where $b=1$ is the scale radius), allowing the model to first learn the smoother, long-range potential. In the second stage, the mask was removed to allow the model to refine its handling of high-density, short-range interactions within the core. To further stabilize training and prevent energy drift, a regularization term was added to the loss function: $\lambda \mathrm{E}[|H_{\mathrm{pred}} - H_{\mathrm{initial}}|^2]$, with $\lambda = 0.001$. The network was trained using the Adam optimizer.
+
+\subsection{Evaluation metrics}
+The performance of the trained emulator was assessed on several criteria, focusing on both trajectory accuracy and the preservation of fundamental physical symmetries.
+\begin{itemize}
+    \item \textbf{Trajectory Reconstruction:} The primary accuracy metric was the Mean Squared Error (MSE) in both position and velocity between the emulated trajectories and the ground-truth simulations over the full time interval $T=5.0$. This was evaluated on the held-out test sets for $N=25, 50,$ and $100$ particles to assess zero-shot generalization.
+    \item \textbf{Hamiltonian Conservation:} To verify long-term energy stability, we measured the Hamiltonian deviation, $\Delta H(t) = |H(q(t), p(t)) - H(q(0), p(0))|$, throughout the integration. A symplectic model should exhibit bounded, oscillatory energy error, in contrast to the secular energy drift seen in non-symplectic methods.
+    \item \textbf{Time-Reversibility:} We tested the time-reversal symmetry of the learned dynamics by integrating a system forward from its initial state at $t=0$ to the final state at $t=5.0$, and then integrating it backward in time (using a negative timestep) to $t=0$. The reversibility error was quantified as the final Euclidean distance between the backward-integrated state and the original initial state.
+    \item \textbf{Phase-Space Volume Preservation:} According to Liouville's theorem, a Hamiltonian flow is volume-preserving in phase space. This implies that the Jacobian of the one-step flow map, $M = \frac{\partial(q_{n+1}, p_{n+1})}{\partial(q_n, p_n)}$, must have a determinant of one. We numerically computed $\det(M)$ for our learned integrator to confirm that it acts as a canonical transformation, a rigorous test of its symplectic nature.
+\end{itemize}
+
+**Available subcategories in cs:**
+- cs.AI: Artificial Intelligence — Covers all areas of AI except Vision, Robotics, Machine Learning, Multiagent Systems, and Computation and Language, which have separate categories.
+- cs.AR: Hardware Architecture — Covers systems organization and hardware architecture, including digital logic, processor design, memory systems.
+- cs.CC: Computational Complexity — Covers models of computation, complexity classes, structural complexity, complexity tradeoffs, upper and lower bounds.
+- cs.CE: Computational Engineering, Finance, and Science — Covers applications of computer science to the mathematical modeling of complex systems in science, engineering, and finance.
+- cs.CG: Computational Geometry — Covers geometric algorithms, computational methods for spatial problems, mesh generation, shape analysis.
+- cs.CL: Computation and Language — Covers natural language processing, computational linguistics, speech recognition, text generation, machine translation.
+- cs.CR: Cryptography and Security — Covers all areas of cryptography and security including authentication, public key cryptosystems, proof-carrying code.
+- cs.CV: Computer Vision and Pattern Recognition — Covers image processing, computer vision, pattern recognition, and scene understanding.
+- cs.CY: Computers and Society — Covers impact of computers on society, computer ethics, information technology and public policy, legal issues.
+- cs.DB: Databases — Covers database management, datamining, and data processing, query languages, indexing.
+- cs.DC: Distributed, Parallel, and Cluster Computing — Covers fault-tolerance, distributed algorithms, stability, parallel computation, and cluster computing.
+- cs.DL: Digital Libraries — Covers all aspects of the digital library design and document and text creation.
+- cs.DM: Discrete Mathematics — Covers combinatorics, graph theory, applications of probability in discrete structures.
+- cs.DS: Data Structures and Algorithms — Covers data structures and analysis of algorithms, sorting, searching, graph algorithms.
+- cs.ET: Emerging Technologies — Covers approaches to information processing based on alternatives to silicon CMOS-based technologies, including quantum computing, DNA computing.
+- cs.FL: Formal Languages and Automata Theory — Covers automata theory, formal language theory, grammars, and combinatorics on words.
+- cs.GL: General Literature — Covers introductory material, survey material, predictions of future trends, biographies.
+- cs.GR: Graphics — Covers all aspects of computer graphics, rendering, modeling, animation.
+- cs.GT: Computer Science and Game Theory — Covers all theoretical and applied aspects at the intersection of computer science and game theory, mechanism design, auction theory.
+- cs.HC: Human-Computer Interaction — Covers human factors, user interfaces, and collaborative computing.
+- cs.IR: Information Retrieval — Covers indexing, dictionaries, retrieval, content and analysis, search engines, web search.
+- cs.IT: Information Theory — Covers theoretical and experimental aspects of information theory and coding, data compression, channel capacity.
+- cs.LG: Machine Learning — Papers on all aspects of machine learning research including supervised, unsupervised, reinforcement learning, deep learning, representation learning.
+- cs.LO: Logic in Computer Science — Covers all aspects of logic in computer science, including finite model theory, logics of programs, modal logic, model checking.
+- cs.MA: Multiagent Systems — Covers multiagent systems, distributed artificial intelligence, intelligent agents, coordinated interactions, multi-robot systems.
+- cs.MM: Multimedia — Covers multimedia computing applications and technologies, media processing.
+- cs.MS: Mathematical Software — Covers development and analysis of algorithms for mathematical software, numerical libraries.
+- cs.NA: Numerical Analysis — Covers numerical methods, scientific computing, computational mathematics.
+- cs.NE: Neural and Evolutionary Computing — Covers neural networks, connectionism, genetic algorithms, artificial life, adaptive behavior, evolutionary computation.
+- cs.NI: Networking and Internet Architecture — Covers all aspects of computer communication networks, including network architecture and design, protocols, routing.
+- cs.OH: Other Computer Science — Classification for documents that do not fit anywhere else in computer science.
+- cs.OS: Operating Systems — Covers system software for resource management, process control, scheduling.
+- cs.PF: Performance — Covers performance measurement and evaluation, queueing, and simulation.
+- cs.PL: Programming Languages — Covers programming language semantics, language features, programming approaches, type systems, compilers.
+- cs.RO: Robotics — Covers robot design, control, planning, perception, manipulation, locomotion.
+- cs.SC: Symbolic Computation — Covers mathematical symbolic manipulation, computer algebra systems.
+- cs.SD: Sound — Covers all aspects of computing with sound, and sound as an information channel, audio processing.
+- cs.SE: Software Engineering — Covers design tools, software metrics, testing and debugging, programming environments, software development methodologies.
+- cs.SI: Social and Information Networks — Covers the design, analysis, and modeling of social and information networks, including online social networks, viral propagation.
+- cs.SY: Systems and Control — Covers theoretical and experimental research on all facets of automatic control systems, including linear and nonlinear control.
+
+Select one primary subcategory and up to 3 secondary subcategories (from any archive) that also apply. The primary must be from the list above. Secondary categories may come from any arXiv category if the paper is interdisciplinary.
+
+###### PROMPT ENDS ########
+
+primary_category='cs.LG' secondary_categories=['cs.CE', 'physics.comp-ph', 'cs.NE'] justification='The paper focuses on developing a machine learning framework (Hamiltonian Graph Neural Networks) for physical simulation, which falls under cs.LG (Machine Learning). It is highly interdisciplinary, applying these methods to N-body gravitational systems (cs.CE, physics.comp-ph) and utilizing neural network architectures (cs.NE).'

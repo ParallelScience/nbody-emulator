@@ -1,0 +1,7 @@
+Classifier: Step 1 — Determining archive...
+  Archive: cs — The paper focuses on developing a novel machine learning architecture (Hamiltonian Graph Neural Networks) to solve a computational physics problem, which is a primary contribution to the field of machine learning.
+Classifier: Step 2 — Determining subcategory within 'cs'...
+  Primary: cs.LG
+  Secondary: cs.CE, physics.comp-ph, cs.NE
+  Justification: The paper focuses on developing a machine learning framework (Hamiltonian Graph Neural Networks) for physical simulation, which falls under cs.LG (Machine Learning). It is highly interdisciplinary, applying these methods to N-body gravitational systems (cs.CE, physics.comp-ph) and utilizing neural network architectures (cs.NE).
+Classification completed in 0 min 2 sec. Cost: $0.0000
