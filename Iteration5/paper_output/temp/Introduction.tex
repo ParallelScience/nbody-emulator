@@ -1,0 +1,20 @@
+\documentclass[]{article}
+
+\usepackage{amsmath}
+\usepackage{multirow}
+\usepackage{natbib}
+\usepackage{graphicx} 
+
+
+\begin{document}
+
+The gravitational N-body problem provides the theoretical foundation for understanding the evolution of cosmic structures, from the intricate dance of planetary systems to the formation of galaxies. While direct numerical integration of these systems offers high fidelity, its computational cost becomes prohibitive for large particle counts or long-term evolutionary studies, limiting the exploration of vast parameter spaces required in modern astrophysics. This computational bottleneck has spurred interest in machine learning emulators, which aim to accelerate simulations by learning the complex dynamics directly from data. However, creating emulators that are both fast and physically reliable over long timescales, particularly for chaotic systems, remains a significant challenge.
+
+The primary failing of many standard deep learning models lies in their approach. By treating the task as a black-box regression problem—learning a direct mapping from a system's state at one time to another—they often ignore the fundamental principles governing the dynamics. Physical systems like N-body aggregations evolve according to specific geometric rules in phase space, governed by conserved quantities. Models that are not explicitly constrained by these rules accumulate small prediction errors at each step, leading to unphysical outcomes such as secular energy drift and unstable, divergent trajectories. This makes them unsuitable for the very scientific inquiries they are intended to accelerate.
+
+In this work, we pivot from this brittle regression paradigm to one that learns the underlying physical structure of the system. We propose a model that learns the system's Hamiltonian, $H(q, p) = T(p) + U(q)$, the scalar function that generates the dynamics, rather than the vector forces directly. We use a permutation-invariant graph neural network to parameterize the potential energy $U(q)$, an architecture naturally suited to interacting particle systems. The forces are then derived from this learned Hamiltonian using automatic differentiation, a procedure that mathematically guarantees the resulting force field is conservative. This directly embeds one of the system's core conservation laws into the model's architecture.
+
+A conservative force field is necessary, but not sufficient, for long-term stability in discrete time-stepping. The integration algorithm itself must also preserve the geometric structure of the Hamiltonian flow. Our central contribution is to enforce this property by embedding a differentiable symplectic integrator, the leapfrog algorithm, directly into the training process. This forces the model to learn a Hamiltonian whose discrete flow matches the structure-preserving evolution of the training data. This approach transforms the learning problem into the robust emulation of a continuous Hamiltonian vector field, trained on intermediate trajectory snapshots. The resulting emulator is, by construction, time-reversible and conserves the phase-space volume, which leads to bounded energy error over long-term integrations. We demonstrate that this symmetry-informed approach not only produces stable and accurate predictions for virialized N-body systems but also generalizes effectively to systems with different particle counts, underscoring the power of encoding physical principles directly into the learning architecture.
+
+\end{document}
+                

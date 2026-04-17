@@ -1,0 +1,31 @@
+\documentclass[]{article}
+
+\usepackage{amsmath}
+\usepackage{multirow}
+\usepackage{natbib}
+\usepackage{graphicx} 
+
+
+\begin{document}
+
+% Auto-generated figures file
+% \usepackage{graphicx}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.5\textwidth]{../input_files/plots/step_4_hamiltonian_deviation_2_1776466132.png}
+    \caption{The deviation of the total energy (Hamiltonian) from its initial value, $H(t) - H(0)$, for five distinct test simulations integrated over a time of $T=5.0$. The energy error exhibits bounded oscillations without any secular drift, providing empirical evidence that the symplectic Hamiltonian Neural Network with its embedded leapfrog integrator has learned a conservative system. This behavior prevents the unphysical injection or dissipation of energy, which is a critical feature for the stable long-term emulation of N-body dynamics.}
+    \label{fig:image1}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.5\textwidth]{../input_files/plots/step_4_mse_comparison_1_1776466132.png}
+    \caption{Comparison of the final position Mean Squared Error (MSE) between the Hamiltonian Neural Network (HNN) model and a point-mass baseline for simulations with N=25, 50, and 100 particles. The HNN model was trained exclusively on N=50 systems, thus the results for N=25 and N=100 demonstrate its zero-shot transferability. The model maintains a consistently low error across all particle counts, outperforming the baseline by several orders of magnitude and showing robust generalization to system sizes not seen during training.}
+    \label{fig:image0}
+\end{figure}
+
+
+
+\end{document}
+                

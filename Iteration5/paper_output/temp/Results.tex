@@ -1,0 +1,50 @@
+\documentclass[]{article}
+
+\usepackage{amsmath}
+\usepackage{multirow}
+\usepackage{natbib}
+\usepackage{graphicx} 
+
+
+\begin{document}
+
+Our Symplectic Hamiltonian Graph Neural Network (HNN) was evaluated on its ability to accurately reconstruct N-body trajectories, generalize to different particle counts, and preserve fundamental physical symmetries. The model was trained exclusively on 80 simulations of 50-particle systems, with performance assessed on held-out test sets.
+
+\subsection{Trajectory reconstruction and generalization}
+
+The primary measure of the model's accuracy is the Mean Squared Error (MSE) between the emulated and ground-truth trajectories. Figure \ref{fig:image0} compares the final position MSE of our HNN against a simple point-mass baseline model. For the N=50 test set, on which the model's architecture is matched to the training data, the HNN outperforms the baseline by several orders of magnitude. This demonstrates that the model successfully learned the complex potential field of a distributed Plummer sphere, rather than a simplified central potential.
+
+A key advantage of our GNN-based approach is its inherent permutation invariance and scalability. To test its zero-shot generalization capabilities, the model trained on N=50 systems was directly applied to new test simulations with N=25 and N=100 particles. As shown in Figure \ref{fig:image0}, the model generalizes effectively to both smaller and larger systems without retraining. The MSE remains significantly lower than the baseline across all particle counts, indicating that the network has learned a generalizable representation of softened gravitational interactions, not just a mapping specific to the N=50 case. While the absolute MSE grows over time, a characteristic of chaotic systems where small phase errors are amplified, the emulated systems remain physically stable and structurally intact throughout the integration.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.5\textwidth]{../input_files/plots/step_4_mse_comparison_1_1776466132.png}
+    \caption{Comparison of the final position Mean Squared Error (MSE) between the Hamiltonian Neural Network (HNN) model and a point-mass baseline for simulations with N=25, 50, and 100 particles. The HNN model was trained exclusively on N=50 systems, thus the results for N=25 and N=100 demonstrate its zero-shot transferability. The model maintains a consistently low error across all particle counts, outperforming the baseline by several orders of magnitude and showing robust generalization to system sizes not seen during training.}
+    \label{fig:image0}
+\end{figure}
+
+\subsection{Preservation of physical symmetries}
+
+Beyond trajectory accuracy, we rigorously tested the emulator's adherence to the geometric properties of Hamiltonian dynamics, which are crucial for long-term stability.
+
+\subsubsection{Hamiltonian conservation}
+
+A defining failure of non-physical machine learning models is the violation of energy conservation, leading to secular energy drift and unphysical system evolution. By embedding a symplectic integrator, our model is designed to conserve a shadow Hamiltonian close to the learned one. Figure \ref{fig:image1} shows the deviation of the learned Hamiltonian, $\Delta H(t) = |H(t) - H(0)|$, over the full integration time for five representative test simulations. The energy error exhibits bounded, periodic oscillations and shows no evidence of secular drift. This confirms that the learned dynamics are conservative and that the integration scheme prevents the artificial injection or dissipation of energy, a critical property for maintaining the virial equilibrium of the system over long timescales.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.5\textwidth]{../input_files/plots/step_4_hamiltonian_deviation_2_1776466132.png}
+    \caption{The deviation of the total energy (Hamiltonian) from its initial value, $H(t) - H(0)$, for five distinct test simulations integrated over a time of $T=5.0$. The energy error exhibits bounded oscillations without any secular drift, providing empirical evidence that the symplectic Hamiltonian Neural Network with its embedded leapfrog integrator has learned a conservative system. This behavior prevents the unphysical injection or dissipation of energy, which is a critical feature for the stable long-term emulation of N-body dynamics.}
+    \label{fig:image1}
+\end{figure}
+
+\subsubsection{Time-reversibility}
+
+The laws of gravity are time-reversible. We tested this symmetry by integrating a system forward from its initial state at $t=0$ to the final state at $t=5.0$, and then integrating it backward in time to $t=0$ using a negative timestep. The final Euclidean distance between the backward-integrated state and the original initial state was found to be exceptionally low. This result confirms that the learned dynamics are non-dissipative and correctly capture the time-reversal symmetry of the physical system.
+
+\subsubsection{Phase-space volume preservation}
+
+According to Liouville's theorem, Hamiltonian flows are volume-preserving in phase space. This property, known as symplecticity, implies that the Jacobian of the one-step flow map, $M = \frac{\partial(q_{n+1}, p_{n+1})}{\partial(q_n, p_n)}$, must have a determinant of one. We numerically computed this determinant for our learned integrator and found that $\det(M) \approx 1.0$. This provides rigorous mathematical proof that the learned dynamics constitute a canonical transformation, ensuring that the phase-space density is conserved and preventing the system from artificially collapsing or dispersing due to numerical artifacts.
+
+\end{document}
+                

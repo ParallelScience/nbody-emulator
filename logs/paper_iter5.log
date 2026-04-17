@@ -1,0 +1,27 @@
+/opt/denario-venv/lib/python3.12/site-packages/denario/langgraph_agents/paper_module/LaTeX/AAS_keywords.txt
+Found 2 plot files to process....Extracting UNESCO keywords.......
+Plot files: ['step_4_mse_comparison_1_1776466132.png', 'step_4_hamiltonian_deviation_2_1776466132.png']
+
+  Level 1 domains: ['ASTRONOMY & ASTROPHYSICS', 'PHYSICS', 'MATHEMATICS']
+  Level 2 sub-fields for PHYSICS: ['Mechanics', 'Fluids (physics of)', 'Theoretical physics', 'Other physical specialities (specify)']
+  Level 3 areas for Mechanics: ['Analytical mechanics', 'Many body theory', 'Statistical mechanics', 'Continuous mechanics', 'Solid mechanics', 'Other (specify)']
+  Level 3 areas for Fluids (physics of): ['Fluid flow', 'Fluid mechanics', 'Gases', 'Liquids', 'Plasmas (physics of)', 'Other (specify)']
+  Level 3 areas for Theoretical physics: ['Gravitation', 'Gravitational fields', 'Mass', 'Energy (physics)', 'Fields', 'Theory of relativity']
+  Level 2 sub-fields for MATHEMATICS: ['Analysis and functional analysis', 'Geometry', 'Numerical analysis', 'Other mathematical specialities (specify)']
+  Level 3 areas for Analysis and functional analysis: ['Approximation theory', 'Calculus of variations', 'Difference equations', 'Global analysis', 'Ordinary differential equations', 'Potential theory']
+  Level 3 areas for Geometry: ['Differential geometry', 'Riemannian geometry', 'Tensor analysis', 'Affine geometry', 'Extremum problems', 'Other (specify)']
+  Level 3 areas for Numerical analysis: ['Algorithm construction', 'Differential equations', 'Error analysis', 'Interpolation', 'approximation and curve fitting', 'Numerical differentiation', 'Ordinary differential equations']
+  Final UNESCO keywords: Differential equations, Gravitation, Mechanics, Many body theory, Gravitational fields, Ordinary differential equations, Analytical mechanics, Numerical analysis
+........UNESCO keywords generated
+✅✅.................Abstract written
+✅✅...............Captions generated
+✅................Figures generated
+✅.............Introduction written
+❌✅..................Methods written
+✅..................Results written
+✅..............Conclusions written
+Compiling paper_v1_preliminary...✅✅
+✅..........Refined results written
+Compiling paper_v2_no_citations..✅✅
+Paper written in 4 min 43 sec.
+Cost: $0.429

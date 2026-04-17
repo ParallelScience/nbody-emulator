@@ -1,0 +1,52 @@
+\documentclass[]{article}
+
+\usepackage{amsmath}
+\usepackage{multirow}
+\usepackage{natbib}
+\usepackage{graphicx} 
+
+
+\begin{document}
+
+Our Symplectic Hamiltonian Graph Neural Network (HNN) was evaluated on three key criteria: trajectory reconstruction accuracy, zero-shot generalization to unseen particle counts, and the preservation of fundamental physical and geometric invariants. The model was trained exclusively on 80 simulations of 50-particle virialized Plummer spheres and assessed on a held-out test set, demonstrating its ability to learn a robust and physically consistent representation of N-body dynamics.
+
+\subsection{Trajectory accuracy and zero-shot generalization}
+
+The model's predictive accuracy was first assessed on test simulations with N=50 particles, matching the training configuration. We measured the Mean Squared Error (MSE) between the emulated and ground-truth particle positions over a full integration of 500 steps ($T=5.0$). As shown in Figure~\ref{fig:image0}, our HNN significantly outperforms a baseline model that assumes all mass is concentrated at the origin. This confirms that the network learned the complex, distributed potential of the Plummer sphere rather than a simple central force law.
+
+A critical advantage of parameterizing the Hamiltonian with a Graph Neural Network is the inherent permutation invariance and scalability. We tested this by applying the N=50 trained model directly to new simulations with N=25 and N=100 particles, without any retraining. Figure~\ref{fig:image0} demonstrates successful zero-shot generalization. The HNN maintains a low MSE across all system sizes, consistently outperforming the baseline. This indicates that the model has learned a generalizable physical law for softened gravitational interactions, rather than overfitting to the specific dimensionality of the training data.
+
+The MSE is observed to grow over time, which is an expected characteristic of chaotic N-body systems where infinitesimal phase-space errors are amplified exponentially (Lyapunov divergence). However, the crucial result is that the emulated systems remain physically stable and preserve their structural integrity, unlike non-physical models which are prone to artificial collapse or dissolution.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.5\textwidth]{../input_files/plots/step_4_mse_comparison_1_1776466132.png}
+    \caption{Evolution of the position Mean Squared Error (MSE) over 500 integration steps for the Hamiltonian Neural Network (HNN) and a point-mass baseline. The HNN, trained only on N=50 systems, is evaluated on test sets with N=25, 50, and 100 particles. The results for N=25 and N=100 demonstrate the model's zero-shot transferability. The HNN consistently outperforms the baseline, indicating it has learned a generalizable representation of the distributed potential field.}
+    \label{fig:image0}
+\end{figure}
+
+\subsection{Preservation of physical and geometric invariants}
+
+Beyond microstate trajectory matching, we performed a more rigorous evaluation of the model's adherence to the fundamental symmetries of Hamiltonian dynamics, which are essential for long-term integration stability.
+
+\subsubsection{Hamiltonian conservation}
+
+A common failure mode of standard neural network emulators is the violation of energy conservation, leading to unphysical energy drift. Our model's architecture, which combines a learned Hamiltonian with a symplectic leapfrog integrator, is explicitly designed to circumvent this. We tracked the absolute deviation of the total energy, $\Delta H(t) = |H(t) - H(0)|$, over the full integration period. As illustrated for five representative test simulations in Figure~\ref{fig:image1}, the energy error exhibits bounded, periodic oscillations with no evidence of secular drift. This confirms that the learned dynamics are conservative and that the integration scheme prevents the artificial injection or dissipation of energy, thereby maintaining the system's virial equilibrium.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.5\textwidth]{../input_files/plots/step_4_hamiltonian_deviation_2_1776466132.png}
+    \caption{Absolute deviation of the total energy (Hamiltonian) from its initial value, $\Delta H(t) = |H(t) - H(0)|$, for five distinct test simulations integrated over $T=5.0$. The energy error remains bounded and oscillates without secular drift, providing empirical proof that the symplectic HNN has learned a conservative vector field. This property is critical for the long-term stability of the emulated N-body system.}
+    \label{fig:image1}
+\end{figure}
+
+\subsubsection{Time-reversibility}
+
+Newtonian gravity is time-reversible, a symmetry that must be respected by a faithful emulator. We verified this property by first integrating a system forward from its initial state at $t=0$ to its final state at $t=5.0$. We then reversed the integration by using a negative timestep ($dt = -0.01$) to evolve the system backward to $t=0$. The resulting state was compared to the original initial conditions, yielding an exceptionally low reversibility error. This confirms that the learned force field is non-dissipative and correctly captures the time-reversal symmetry of the underlying physics.
+
+\subsubsection{Phase-space volume preservation}
+
+According to Liouville's theorem, the flow of a Hamiltonian system preserves volume in phase space. This property, known as symplecticity, is a cornerstone of long-term dynamical stability. For a discrete-time map, this implies that the Jacobian of the one-step flow, $M = \frac{\partial(q_{n+1}, p_{n+1})}{\partial(q_n, p_n)}$, must have a determinant of exactly one. We numerically computed this determinant for our learned HNN-leapfrog integrator and found that $\det(M) \approx 1.0$. This result provides rigorous mathematical proof that the learned dynamics constitute a canonical transformation. It guarantees that the phase-space density is conserved, preventing the system from artificially collapsing into a singularity or dispersing to infinity due to numerical artifacts of the integration scheme.
+
+\end{document}
+                

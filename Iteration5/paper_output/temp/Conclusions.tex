@@ -1,0 +1,20 @@
+\documentclass[]{article}
+
+\usepackage{amsmath}
+\usepackage{multirow}
+\usepackage{natbib}
+\usepackage{graphicx} 
+
+
+\begin{document}
+
+In this work, we addressed the challenge of creating physically robust and long-term stable emulators for gravitational N-body systems. Standard machine learning approaches often fail this task by treating it as a black-box regression problem, leading to violations of fundamental conservation laws and unphysical trajectory predictions. Our approach pivots from this paradigm by directly embedding the underlying physical structure of the system into the model's architecture.
+
+We developed a Symplectic Hamiltonian Neural Network that learns the system's scalar Hamiltonian rather than its vector forces. The potential energy was parameterized using a permutation-invariant graph neural network, which is naturally suited to interacting particle systems and allows for generalization across different particle counts. By deriving forces from this learned potential via automatic differentiation, we guaranteed the resulting force field is conservative. The central contribution of our method was the integration of a differentiable leapfrog integrator directly into the training loop. This constrained the learned dynamics to be symplectic, ensuring the preservation of phase-space geometry. The model was trained on trajectory snapshots from simulations of 50-particle virialized Plummer spheres, using a curriculum learning strategy to handle the system's multi-scale density.
+
+Our results demonstrate that this symmetry-informed approach is highly effective. The trained emulator accurately reconstructs trajectories for the N=50 particle systems it was trained on. More importantly, it exhibits strong zero-shot generalization, producing stable and accurate predictions for systems with N=25 and N=100 particles without any retraining. The key success of the model lies in its adherence to physical principles. The learned dynamics exhibit bounded, oscillatory energy error with no secular drift, confirming long-term energy conservation. Furthermore, the model correctly captures time-reversal symmetry and, as verified by the Jacobian of its flow map, preserves phase-space volume, fulfilling the condition of symplecticity.
+
+The primary lesson from this study is that for complex, chaotic physical systems, explicitly encoding fundamental symmetries and conservation laws into the learning architecture is a more effective path to building robust and generalizable emulators than purely minimizing state-prediction error. By learning a continuous Hamiltonian flow and enforcing its geometric structure through a symplectic integrator, we have shown it is possible to create a model that is not only fast and accurate but also physically plausible, ensuring its reliability for long-term scientific simulations.
+
+\end{document}
+                

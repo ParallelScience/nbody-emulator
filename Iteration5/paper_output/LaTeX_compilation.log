@@ -1,0 +1,53 @@
+---- STDOUT ----
+This is XeTeX, Version 3.141592653-2.6-0.999994 (TeX Live 2022/Debian) (preloaded format=xelatex)
+ restricted \write18 enabled.
+entering extended mode
+(./Methods.tex
+LaTeX2e <2022-11-01> patch level 1
+L3 programming layer <2023-01-16>
+(/usr/share/texlive/texmf-dist/tex/latex/base/article.cls
+Document Class: article 2022/07/02 v1.4n Standard LaTeX document class
+(/usr/share/texlive/texmf-dist/tex/latex/base/size10.clo))
+(/usr/share/texlive/texmf-dist/tex/latex/amsmath/amsmath.sty
+For additional information on amsmath, use the `?' option.
+(/usr/share/texlive/texmf-dist/tex/latex/amsmath/amstext.sty
+(/usr/share/texlive/texmf-dist/tex/latex/amsmath/amsgen.sty))
+(/usr/share/texlive/texmf-dist/tex/latex/amsmath/amsbsy.sty)
+(/usr/share/texlive/texmf-dist/tex/latex/amsmath/amsopn.sty))
+(/usr/share/texlive/texmf-dist/tex/latex/multirow/multirow.sty)
+(/usr/share/texlive/texmf-dist/tex/latex/natbib/natbib.sty)
+(/usr/share/texlive/texmf-dist/tex/latex/graphics/graphicx.sty
+(/usr/share/texlive/texmf-dist/tex/latex/graphics/keyval.sty)
+(/usr/share/texlive/texmf-dist/tex/latex/graphics/graphics.sty
+(/usr/share/texlive/texmf-dist/tex/latex/graphics/trig.sty)
+(/usr/share/texlive/texmf-dist/tex/latex/graphics-cfg/graphics.cfg)
+(/usr/share/texlive/texmf-dist/tex/latex/graphics-def/xetex.def)))
+(/usr/share/texlive/texmf-dist/tex/latex/l3backend/l3backend-xetex.def)
+No file Methods.aux.
+(/usr/share/texlive/texmf-dist/tex/latex/base/ts1cmr.fd) [1]
+Overfull \hbox (6.06198pt too wide) in paragraph at lines 39--40
+[]\TU/lmr/bx/n/10 Kick: \TU/lmr/m/n/10 Update momenta by a final half-step: $\O
+ML/cmm/m/it/10 p[] \OT1/cmr/m/n/10 = \OML/cmm/m/it/10 p[] \OMS/cmsy/m/n/10 ^^@ 
+[]r[]\OML/cmm/m/it/10 U\OT1/cmr/m/n/10 (\OML/cmm/m/it/10 q[]\OT1/cmr/m/n/10 )$\
+TU/lmr/m/n/10 . 
+! Undefined control sequence.
+l.43 ...ded to the loss function: $\lambda \mathbb
+                                                  {E}[|H_{\text{pred}} - H_{...
+
+? 
+Overfull \hbox (10.462pt too wide) in paragraph at lines 49--50
+\TU/lmr/m/n/10 measured the Hamiltonian deviation, $\OT1/cmr/m/n/10 ^^A\OML/cmm
+/m/it/10 H\OT1/cmr/m/n/10 (\OML/cmm/m/it/10 t\OT1/cmr/m/n/10 ) = \OMS/cmsy/m/n/
+10 j\OML/cmm/m/it/10 H\OT1/cmr/m/n/10 (\OML/cmm/m/it/10 q\OT1/cmr/m/n/10 (\OML/
+cmm/m/it/10 t\OT1/cmr/m/n/10 )\OML/cmm/m/it/10 ; p\OT1/cmr/m/n/10 (\OML/cmm/m/i
+t/10 t\OT1/cmr/m/n/10 )) \OMS/cmsy/m/n/10 ^^@ \OML/cmm/m/it/10 H\OT1/cmr/m/n/10
+ (\OML/cmm/m/it/10 q\OT1/cmr/m/n/10 (0)\OML/cmm/m/it/10 ; p\OT1/cmr/m/n/10 (0))
+\OMS/cmsy/m/n/10 j$\TU/lmr/m/n/10 ,
+[2]
+Overfull \hbox (3.26503pt too wide) in paragraph at lines 50--51
+[]\TU/lmr/bx/n/10 Time-Reversibility: \TU/lmr/m/n/10 We tested the time-reversa
+l symmetry of the learned
+[3] (./Methods.aux) )
+Output written on Methods.pdf (3 pages).
+Transcript written on Methods.log.
+---- STDERR ----
