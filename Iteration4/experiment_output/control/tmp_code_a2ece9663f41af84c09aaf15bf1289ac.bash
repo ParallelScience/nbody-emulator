@@ -1,0 +1,1 @@
+find /home/node/work/projects/ -name "*.npy"

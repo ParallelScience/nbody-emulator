@@ -1,0 +1,1 @@
+ls -l data/ && python3 -c "import torch; import os; model = torch.load('data/trained_model.pth', map_location='cpu'); print(model.keys())"

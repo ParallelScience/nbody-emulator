@@ -1,0 +1,82 @@
+{
+    "sub_tasks": [
+        {
+            "bullet_points": [
+                "Load and validate existing data files at /home/node/work/projects/nbody_emulator/data/ic_final.npy and /home/node/work/projects/nbody_emulator/data/sim_metadata.npy.",
+                "Implement the leapfrog integrator to generate 10 intermediate snapshots (t in {0.5, 1.0, ..., 5.0}) for each of the 100 simulations.",
+                "Compute ground-truth acceleration a_i for each particle at these snapshots.",
+                "Print summary statistics (energy errors, virial ratios) to confirm data integrity.",
+                "Partition the 100 simulations into training (80), validation (10), and testing (10) sets and save to disk."
+            ],
+            "sub_task": "Dataset Preparation and Snapshot Extraction",
+            "sub_task_agent": "engineer",
+            "code_execution_timeout": 1800
+        },
+        {
+            "bullet_points": [
+                "Construct a permutation-invariant Interaction Network that predicts residual acceleration Delta a_i.",
+                "Implement the physical prior f_phys using the gravitational softening kernel epsilon = 0.01.",
+                "Ensure the model architecture enforces Newton’s Third Law by parameterizing edge interactions f_ij with anti-symmetry.",
+                "Print the total parameter count of the network.",
+                "Run a numerical gradient check (finite-difference verification) on the anti-symmetric edge interaction to confirm Newton's Third Law enforcement and log to console.",
+                "Initialize the model and verify forward pass on a single batch."
+            ],
+            "sub_task": "Residual GNN Architecture Implementation",
+            "sub_task_agent": "engineer"
+        },
+        {
+            "bullet_points": [
+                "Implement the Neural ODE training loop using an adaptive-step solver (e.g., dopri5) applied over the 10 intermediate snapshot intervals.",
+                "Perform a brief grid search on the validation set to tune the energy conservation regularization weight lambda.",
+                "Print the chosen lambda value and its effect on validation loss.",
+                "Train the model on the 80-simulation training set.",
+                "Print final training loss, final validation loss, number of epochs/iterations, and wall-clock training time.",
+                "Save the trained model weights and training history."
+            ],
+            "sub_task": "Neural ODE Training Protocol",
+            "sub_task_agent": "engineer",
+            "code_execution_timeout": 1800
+        },
+        {
+            "bullet_points": [
+                "Compare the learned model's forward integration against ground-truth leapfrog at T=5 on the test set; print per-particle position and velocity MSE.",
+                "(a) Perform forward and backward integration on the test set to quantify reversibility error; extend rollout to T=10.0 to monitor energy drift and trajectory divergence. Save results to reversibility_stability_metrics.npy.",
+                "(b) Compute local particle density for each snapshot to facilitate density-dependent error analysis. Save results to density_error_metrics.npy.",
+                "Print all diagnostic metrics to the console."
+            ],
+            "sub_task": "Time-Reversibility, Stability, and Density Analysis",
+            "sub_task_agent": "engineer"
+        },
+        {
+            "bullet_points": [
+                "Reuse simulation generation code from Step 1 to generate new test sets with N=25 and N=100 particles.",
+                "Evaluate the trained N=50 model on these new sets.",
+                "Assess performance focusing on energy conservation drift and qualitative stability.",
+                "Print per-particle MSE and energy drift for each N value.",
+                "Save the results of the generalization tests."
+            ],
+            "sub_task": "N-Scaling Generalization Test",
+            "sub_task_agent": "engineer"
+        },
+        {
+            "bullet_points": [
+                "Generate multi-panel figure 1: Training/validation loss curves combined with energy conservation over time.",
+                "Generate multi-panel figure 2: Trajectory reconstruction error vs. local density combined with core/halo decomposition.",
+                "Generate multi-panel figure 3: Reversibility error and N-scaling performance metrics.",
+                "Save all plots as high-resolution PNG files."
+            ],
+            "sub_task": "Visualization and Analysis",
+            "sub_task_agent": "engineer"
+        },
+        {
+            "bullet_points": [
+                "Reference all quantitative metrics printed in previous steps (final MSE, energy drift, reversibility errors, N-scaling comparisons, lambda tuning).",
+                "Structure the Results section with subsections: (1) Residual GNN Training Performance, (2) Trajectory Reconstruction Accuracy, (3) Time-Reversibility and Extended Rollout Stability, (4) Density-Dependent Error Analysis, and (5) N-Scaling Generalization.",
+                "Explicitly comment on whether energy conservation regularization improved physical consistency relative to a baseline.",
+                "Write the full Results section of the report."
+            ],
+            "sub_task": "Final Performance Synthesis and Reporting",
+            "sub_task_agent": "researcher"
+        }
+    ]
+}
