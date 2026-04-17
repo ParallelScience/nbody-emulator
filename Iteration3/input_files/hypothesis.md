@@ -1,0 +1,9 @@
+**Title: Multi-Scale Interaction Decomposition for N-body Emulation**
+
+The current GNN-based Neural ODE approach successfully captures local pairwise interactions but struggles with the "long tail" of MSE errors caused by the chaotic, global evolution of the system (Lyapunov instability). I hypothesize that the model's performance is limited by its inability to distinguish between "near-field" (high-frequency, high-force) and "far-field" (low-frequency, collective) gravitational contributions. 
+
+To improve performance, I propose a **Multi-Scale Interaction Network (MSIN)**. Instead of a single GNN layer, the architecture will decompose the force field into two parallel streams:
+1. **Local Stream:** A GNN with a restricted spatial cutoff (e.g., $r < 2\epsilon$) that explicitly models high-intensity, close-encounter dynamics using the existing softening kernel.
+2. **Global Stream:** A Transformer-based attention mechanism that processes the full particle set to compute a "mean-field" potential, capturing the collective gravitational influence of the Plummer sphere without requiring explicit pairwise summation for distant particles.
+
+By concatenating these streams, the model can learn to ignore the noise of distant, low-impact particles in the local stream while maintaining global structural coherence in the global stream. This dual-pathway approach will be trained using the existing Neural ODE framework, with a specific loss term that penalizes the "Global Stream" for violating the virial theorem (Total KE + PE = constant). This will force the global stream to learn the macroscopic potential of the Plummer sphere, effectively acting as a learned "background potential" that stabilizes the local, high-variance interactions. This approach is new as it moves away from uniform GNN processing toward a hierarchical, physics-informed decomposition of the gravitational field.
