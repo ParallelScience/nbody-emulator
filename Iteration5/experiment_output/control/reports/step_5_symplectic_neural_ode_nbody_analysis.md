@@ -1,3 +1,4 @@
+<!-- filename: reports/step_5_symplectic_neural_ode_nbody_analysis.md -->
 # Results and Discussion: Symplectic Neural ODE for Virialized N-body Dynamics
 
 ## 1. Introduction and Methodological Overview

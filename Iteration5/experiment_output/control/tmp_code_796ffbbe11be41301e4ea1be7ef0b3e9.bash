@@ -1,0 +1,1 @@
+find /home/node -name "ic_final.npy"

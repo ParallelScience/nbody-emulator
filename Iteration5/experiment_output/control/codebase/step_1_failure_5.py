@@ -4,7 +4,6 @@ import os
 sys.path.insert(0, os.path.abspath("codebase"))
 sys.path.insert(0, "/home/node/data/compsep_data/")
 import numpy as np
-import os
 
 def compute_accelerations(pos, mass, eps=0.01):
     dx = pos[:, np.newaxis, :, :] - pos[:, :, np.newaxis, :]

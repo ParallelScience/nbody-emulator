@@ -25,8 +25,8 @@ def compute_energies(pos, vel, mass, eps=0.01):
     return kin, pot
 
 if __name__ == '__main__':
-    ic_final_path = '/home/node/work/projects/nbody_emulator/data/ic_final.npy'
-    metadata_path = '/home/node/work/projects/nbody_emulator/data/sim_metadata.npy'
+    ic_final_path = 'data/ic_final.npy'
+    metadata_path = 'data/sim_metadata.npy'
     data_dir = 'data/'
     data = np.load(ic_final_path)
     metadata = np.load(metadata_path)

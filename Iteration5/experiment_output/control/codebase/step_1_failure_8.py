@@ -25,9 +25,12 @@ def compute_energies(pos, vel, mass, eps=0.01):
     return kin, pot
 
 if __name__ == '__main__':
-    ic_final_path = '/home/node/work/projects/nbody_emulator/data/ic_final.npy'
-    metadata_path = '/home/node/work/projects/nbody_emulator/data/sim_metadata.npy'
     data_dir = 'data/'
+    ic_final_path = os.path.join(data_dir, 'ic_final.npy')
+    metadata_path = os.path.join(data_dir, 'sim_metadata.npy')
+    if not os.path.exists(ic_final_path):
+        print('Data file not found at ' + ic_final_path)
+        exit(1)
     data = np.load(ic_final_path)
     metadata = np.load(metadata_path)
     data = data.reshape(-1, 50, 13)
@@ -49,11 +52,6 @@ if __name__ == '__main__':
             snapshots.append(np.concatenate([pos, vel], axis=-1))
     snapshots = np.array(snapshots)
     snapshots = snapshots.transpose(1, 0, 2, 3)
-    kin_0, pot_0 = compute_energies(snapshots[:, 0, :, 0:3], snapshots[:, 0, :, 3:6], mass, eps)
-    kin_f, pot_f = compute_energies(snapshots[:, -1, :, 0:3], snapshots[:, -1, :, 3:6], mass, eps)
-    E_0 = kin_0 + pot_0
-    E_f = kin_f + pot_f
-    rel_errors = np.abs(E_f - E_0) / np.abs(E_0)
     train_snapshots = snapshots[:80]
     val_snapshots = snapshots[80:]
     pos_mean = np.mean(train_snapshots[..., 0:3])

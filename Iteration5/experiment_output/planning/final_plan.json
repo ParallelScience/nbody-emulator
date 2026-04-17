@@ -2,50 +2,53 @@
     "sub_tasks": [
         {
             "bullet_points": [
-                "Load `ic_final.npy` and `sim_metadata.npy`.",
-                "Re-run the leapfrog integrator (dt=0.01) on the initial conditions to generate 10 evenly spaced intermediate trajectory snapshots between t=0 and t=T=5.0.",
-                "Print detailed summary statistics (mean/std of positions, velocities, and energy errors).",
-                "Generate a diagnostic plot (saved as `data_diagnostics_1_<timestamp>.png`) showing distributions of initial/final energies, particle radii, and speeds.",
-                "Normalize features and save the processed training (80 simulations) and validation (20 simulations) datasets to disk."
+                "Load the `ic_final.npy` and `sim_metadata.npy` datasets.",
+                "Re-run the leapfrog integrator from the stored initial conditions to generate 10 intermediate trajectory snapshots per simulation.",
+                "Normalize the input and output features (positions and velocities) and save the normalization statistics (mean and standard deviation) to disk.",
+                "Split the data into training (80 simulations) and validation (20 simulations) sets.",
+                "Save the processed tensors (including intermediate states) to disk for use in subsequent steps."
             ],
-            "sub_task": "Data generation, preprocessing, and diagnostic analysis.",
+            "sub_task": "Data generation and preprocessing.",
             "sub_task_agent": "engineer"
         },
         {
             "bullet_points": [
-                "Create a standalone Python module containing: the pairwise interaction MLP, the softened distance kernel ($Ε=0.01$), the Hamiltonian computation, and the force derivation via `torch.autograd.grad`.",
-                "Implement the differentiable \"kick-drift-kick\" leapfrog integrator as a module.",
-                "Test the integrator on a 2-body Kepler orbit toy example; print the energy conservation error over several steps to verify correctness."
+                "Define the GNN-based HNN architecture in a standalone importable Python module.",
+                "Implement the potential $U(r)$ using a shared MLP with permutation-invariant aggregation (summing over all particle pairs).",
+                "Implement the force calculation using `torch.autograd.grad` with the gravitational softening $\\epsilon=0.01$ incorporated into the pairwise distance.",
+                "Implement a configurable \"kick-drift-kick\" leapfrog integration module that accepts the number of steps and timestep $dt$ as parameters."
             ],
-            "sub_task": "Implementation of the modular HNN architecture and integrator verification.",
+            "sub_task": "Implementation of the HNN architecture module.",
             "sub_task_agent": "engineer"
         },
         {
             "bullet_points": [
-                "Implement the training loop using multi-step rollouts from intermediate snapshots.",
-                "Define the loss function as the sum of trajectory MSE and a Hamiltonian regularization term (weighted by a tunable coefficient).",
-                "Implement the curriculum learning strategy: start training on snapshots with r > 0.5b, then gradually introduce core snapshots (r < 0.5b).",
-                "Print individual loss components (MSE and energy regularization) and curriculum stage progress at each epoch.",
-                "Apply data augmentation (rotations/translations) during training."
+                "Implement the training loop using a sliding window approach across intermediate snapshots.",
+                "Apply data augmentation (rotations and translations) to improve generalization.",
+                "Implement the curriculum learning strategy: Stage 1 (particles at $r > 0.5b$) followed by Stage 2 (introducing $r < 0.5b$ core snapshots).",
+                "Incorporate Hamiltonian conservation as a regularization term in the loss function.",
+                "Print per-stage final training and validation MSE, and save the trained model weights to disk."
             ],
-            "sub_task": "Training the HNN with curriculum learning and sliding window rollouts.",
+            "sub_task": "Training the HNN model with curriculum learning.",
             "sub_task_agent": "engineer"
         },
         {
             "bullet_points": [
-                "Evaluate the model on the held-out 20 simulations.",
-                "Generate a multi-panel diagnostic figure (`evaluation_diagnostics_4_<timestamp>.png`) including: predicted vs. ground truth scatter plots, Hamiltonian deviation over T=5, time-reversibility error, and a comparison of the learned potential vs. analytical softened Newtonian potential.",
-                "Perform zero-shot transfer tests on N=25 and N=100 simulations (generated on-the-fly); print MSE results for each."
+                "Evaluate the model on the held-out 20 simulations (N=50).",
+                "Perform zero-shot transfer tests on newly generated N=25 and N=100 simulations.",
+                "Benchmark against an analytical point-mass gravity model.",
+                "Calculate Hamiltonian deviation $\\Delta H$, time-reversibility error, and phase-space volume preservation.",
+                "Save all numerical results (MSE, energy statistics, etc.) to a structured file and generate summary plots."
             ],
-            "sub_task": "Comprehensive evaluation and zero-shot transfer testing.",
+            "sub_task": "Evaluation and benchmarking.",
             "sub_task_agent": "engineer"
         },
         {
             "bullet_points": [
-                "Compare the HNN model's final-state MSE against a naive baseline (e.g., no-change prediction).",
-                "Discuss the effectiveness of physical priors (softening, Hamiltonian regularization) and the curriculum learning strategy, referencing the engineer's printed metrics.",
-                "Interpret the learned potential MLP output relative to the analytical softened Newtonian potential.",
-                "Synthesize findings into a comprehensive final report."
+                "Synthesize the quantitative results from Step 4 across all seven evaluation dimensions.",
+                "Interpret the model's performance regarding the learned Hamiltonian flow and the effectiveness of physical priors.",
+                "Discuss the impact of curriculum learning and zero-shot transferability.",
+                "Write the final Results section of the scientific report, referencing the generated plots and numerical benchmarks."
             ],
             "sub_task": "Final results reporting and interpretation.",
             "sub_task_agent": "researcher"

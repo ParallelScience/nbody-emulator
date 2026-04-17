@@ -4,7 +4,6 @@ import os
 sys.path.insert(0, os.path.abspath("codebase"))
 sys.path.insert(0, "/home/node/data/compsep_data/")
 import numpy as np
-import os
 
 def compute_accelerations(pos, mass, eps=0.01):
     dx = pos[:, np.newaxis, :, :] - pos[:, :, np.newaxis, :]
@@ -49,11 +48,6 @@ if __name__ == '__main__':
             snapshots.append(np.concatenate([pos, vel], axis=-1))
     snapshots = np.array(snapshots)
     snapshots = snapshots.transpose(1, 0, 2, 3)
-    kin_0, pot_0 = compute_energies(snapshots[:, 0, :, 0:3], snapshots[:, 0, :, 3:6], mass, eps)
-    kin_f, pot_f = compute_energies(snapshots[:, -1, :, 0:3], snapshots[:, -1, :, 3:6], mass, eps)
-    E_0 = kin_0 + pot_0
-    E_f = kin_f + pot_f
-    rel_errors = np.abs(E_f - E_0) / np.abs(E_0)
     train_snapshots = snapshots[:80]
     val_snapshots = snapshots[80:]
     pos_mean = np.mean(train_snapshots[..., 0:3])
